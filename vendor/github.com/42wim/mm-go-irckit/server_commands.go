@@ -389,7 +389,7 @@ func CmdWhois(s Server, u *User, msg *irc.Message) error {
 			Trailing: chlist,
 		})
 
-		u.mc.UpdateUsers()
+		// u.mc.UpdateUsers()
 		status := u.mc.GetStatus(other.User)
 		/*
 			if status != "" {

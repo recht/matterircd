@@ -219,7 +219,7 @@ func (m *MMClient) WsReceiver() {
 
 		var event model.WebSocketEvent
 		if err := json.Unmarshal(rawMsg, &event); err == nil && event.IsValid() {
-			m.log.Debugf("WsReceiver: %#v", event)
+			m.log.Debugf("WsReceiver event: %#v", event)
 			msg := &Message{Raw: &event, Team: m.Credentials.Team}
 			m.parseMessage(msg)
 			m.MessageChan <- msg
@@ -228,7 +228,7 @@ func (m *MMClient) WsReceiver() {
 
 		var response model.WebSocketResponse
 		if err := json.Unmarshal(rawMsg, &response); err == nil && response.IsValid() {
-			m.log.Debugf("WsReceiver: %#v", response)
+			m.log.Debugf("WsReceiver response: %#v", response)
 			m.parseResponse(response)
 			continue
 		}
@@ -564,6 +564,11 @@ func (m *MMClient) GetUsers() map[string]*model.User {
 func (m *MMClient) GetUser(userId string) *model.User {
 	m.RLock()
 	defer m.RUnlock()
+	u, ok := m.Users[userId]
+	if !ok {
+		users := m.Client.GetProfilesByIds(string[]{userId})
+		m.Users[userId] = users[userId]
+	}
 	return m.Users[userId]
 }
 

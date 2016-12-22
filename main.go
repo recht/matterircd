@@ -4,11 +4,15 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
-	"github.com/42wim/mm-go-irckit"
-	"github.com/Sirupsen/logrus"
+	"log"
 	"net"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"strings"
+
+	"github.com/42wim/mm-go-irckit"
+	"github.com/Sirupsen/logrus"
 )
 
 var flagRestrict, flagDefaultTeam, flagDefaultServer, flagTLSBind, flagTLSDir *string
@@ -63,6 +67,10 @@ func main() {
 	}
 	logger.Infof("Listening on %s", *flagBind)
 	defer socket.Close()
+
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 	start(socket)
 }
 

@@ -1,7 +1,10 @@
 package irckit
 
 import (
+	"io"
 	"net"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -78,6 +81,9 @@ func (u *User) logoutFromMattermost() error {
 }
 
 func (u *User) createMMUser(mmuser *model.User) *User {
+	if mmuser == nil {
+		return nil
+	}
 	if ghost, ok := u.Srv.HasUser(mmuser.Username); ok {
 		return ghost
 	}
@@ -100,6 +106,10 @@ func (u *User) addUserToChannel(user *model.User, channel string, channelId stri
 		return
 	}
 	ghost := u.createMMUser(user)
+	if ghost == nil {
+		logger.Warnf("Cannot join %v into %s", user, channel)
+		return
+	}
 	logger.Debugf("adding %s to %s", ghost.Nick, channel)
 	ch := u.Srv.Channel(channelId)
 	ch.Join(ghost)
@@ -107,19 +117,8 @@ func (u *User) addUserToChannel(user *model.User, channel string, channelId stri
 
 func (u *User) addUsersToChannels() {
 	srv := u.Srv
-	throttle := time.Tick(time.Millisecond * 300)
+	throttle := time.Tick(time.Millisecond * 50)
 	logger.Debug("in addUsersToChannels()")
-	// add all users, also who are not on channels
-	ch := srv.Channel("&users")
-	for _, mmuser := range u.mc.GetUsers() {
-		// do not add our own nick
-		if mmuser.Id == u.mc.User.Id {
-			continue
-		}
-		u.createMMUser(mmuser)
-		u.addUserToChannel(mmuser, "&users", "&users")
-	}
-	ch.Join(u)
 
 	for _, mmchannel := range u.mc.GetChannels() {
 		// exclude direct messages
@@ -153,16 +152,18 @@ func (u *User) addUsersToChannels() {
 }
 
 func (u *User) handleWsMessage() {
+	updateChannelsThrottle := time.Tick(time.Second * 60)
+
 	for {
 		if u.mc.WsQuit {
 			logger.Debug("exiting handleWsMessage")
 			return
 		}
-		logger.Debug("in handleWsMessage")
+		logger.Debug("in handleWsMessage", len(u.mc.MessageChan))
 		message := <-u.mc.MessageChan
-		logger.Debugf("WsReceiver: %#v", message.Raw)
+		logger.Debugf("MMUser WsReceiver: %#v", message.Raw)
 		// check if we have the users/channels in our cache. If not update
-		u.checkWsActionMessage(message.Raw)
+		u.checkWsActionMessage(message.Raw, updateChannelsThrottle)
 		switch message.Raw.Event {
 		case model.WEBSOCKET_EVENT_POSTED:
 			u.handleWsActionPost(message.Raw)
@@ -239,21 +240,72 @@ func (u *User) handleWsActionPost(rmsg *model.WebSocketEvent) {
 		}
 	}
 
-	if len(data.Filenames) > 0 {
-		logger.Debugf("files detected")
-		for _, fname := range u.mc.GetPublicLinks(data.Filenames) {
-			if props["channel_type"] == "D" {
-				u.MsgSpoofUser(spoofUsername, "download file - "+fname)
-			} else {
-				ch.SpoofMessage(spoofUsername, "download file - "+fname)
-			}
-		}
+	if len(data.Filenames) > 0 || len(data.FileIds) > 0 {
+		go u.handleFiles(data, props["channel_type"] == "D", spoofUsername, ch)
 	}
 	logger.Debugf("handleWsActionPost() user %s sent %s", u.mc.GetUser(data.UserId).Username, data.Message)
 	logger.Debugf("%#v", data)
 
 	// updatelastviewed
 	u.mc.UpdateLastViewed(data.ChannelId)
+}
+
+func (u *User) handleFiles(data *model.Post, directMessage bool, spoofUsername string, ch Channel) {
+	if len(data.Filenames) > 0 {
+		logger.Debugf("files detected")
+		for _, fname := range u.getFiles(data.Filenames) {
+			if directMessage {
+				u.MsgSpoofUser(spoofUsername, "download file - "+fname)
+			} else {
+				ch.SpoofMessage(spoofUsername, "download file - "+fname)
+			}
+		}
+	}
+	if len(data.FileIds) > 0 {
+		logger.Debugf("files detected", data.FileIds)
+		for _, fname := range u.getFiles(data.FileIds) {
+			logger.Debugf("Received file", fname)
+			if directMessage {
+				u.MsgSpoofUser(spoofUsername, "download file - "+fname)
+			} else {
+				ch.SpoofMessage(spoofUsername, "download file - "+fname)
+			}
+		}
+	}
+}
+
+func (u *User) getFiles(files []string) []string {
+	res := make([]string, 0)
+	if len(files) == 0 {
+		return res
+	}
+	for _, fname := range u.mc.GetPublicLinks(files) {
+		res = append(res, fname)
+	}
+	if len(files) == 0 {
+		for _, file := range files {
+			info, err := u.mc.Client.GetFileInfo(file)
+			if err != nil {
+				continue
+			}
+			r, err := u.mc.Client.GetFile(file)
+			if err != nil {
+				continue
+			}
+			path := filepath.Join(os.TempDir(), info.Name)
+			out, err2 := os.Create(path)
+			if err2 != nil {
+				continue
+			}
+			defer out.Close()
+			_, err2 = io.Copy(out, r)
+			if err2 != nil {
+				continue
+			}
+			res = append(res, "file://"+path)
+		}
+	}
+	return res
 }
 
 func (u *User) handleWsActionUserRemoved(rmsg *model.WebSocketEvent) {
@@ -270,7 +322,7 @@ func (u *User) handleWsActionUserRemoved(rmsg *model.WebSocketEvent) {
 
 	ghost := u.createMMUser(u.mc.GetUser(userId))
 	if ghost == nil {
-		logger.Debugf("couldn't remove user %s (%s)", userId, u.mc.GetUser(userId).Username)
+		logger.Debug("couldn't remove user", rmsg.Broadcast.UserId)
 		return
 	}
 	ch.Part(ghost, "")
@@ -290,9 +342,14 @@ func (u *User) handleWsActionUserAdded(rmsg *model.WebSocketEvent) {
 	u.addUserToChannel(u.mc.GetUser(userId), "#"+u.mc.GetChannelName(rmsg.Broadcast.ChannelId), rmsg.Broadcast.ChannelId)
 }
 
-func (u *User) checkWsActionMessage(rmsg *model.WebSocketEvent) {
+func (u *User) checkWsActionMessage(rmsg *model.WebSocketEvent, throttle <-chan time.Time) {
 	if u.mc.GetChannelName(rmsg.Broadcast.ChannelId) == "" {
-		u.mc.UpdateChannels()
+		select {
+		case <-throttle:
+			logger.Debugf("Updating channels for %#v", rmsg.Broadcast)
+			go u.mc.UpdateChannels()
+		default:
+		}
 	}
 	if rmsg.Data == nil {
 		return
@@ -300,7 +357,7 @@ func (u *User) checkWsActionMessage(rmsg *model.WebSocketEvent) {
 	userid, ok := rmsg.Data["user_id"].(string)
 	if ok {
 		if u.mc.GetUser(userid) == nil {
-			u.mc.UpdateUsers()
+			go u.mc.UpdateUsers()
 		}
 	}
 }
