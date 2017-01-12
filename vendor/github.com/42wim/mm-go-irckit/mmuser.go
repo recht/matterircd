@@ -169,6 +169,8 @@ func (u *User) handleWsMessage() {
 		switch message.Raw.Event {
 		case model.WEBSOCKET_EVENT_POSTED:
 			u.handleWsActionPost(message.Raw)
+		case model.WEBSOCKET_EVENT_POST_EDITED:
+			u.handleWsActionPost(message.Raw)
 		case model.WEBSOCKET_EVENT_USER_REMOVED:
 			u.handleWsActionUserRemoved(message.Raw)
 		case model.WEBSOCKET_EVENT_USER_ADDED:
