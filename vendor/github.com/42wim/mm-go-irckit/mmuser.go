@@ -110,17 +110,36 @@ func (u *User) addUserToChannel(user *model.User, channel string, channelId stri
 		logger.Warnf("Cannot join %v into %s", user, channel)
 		return
 	}
-	logger.Debugf("adding %s to %s", ghost.Nick, channel)
+	// logger.Debugf("adding %s to %s", ghost.Nick, channel)
 	ch := u.Srv.Channel(channelId)
 	ch.Join(ghost)
 }
 
 func (u *User) addUsersToChannels() {
-	srv := u.Srv
 	throttle := time.Tick(time.Millisecond * 50)
 	logger.Debug("in addUsersToChannels()")
 
+	channels := make(chan *model.Channel, 5)
+	for i := 0; i < 10; i++ {
+		go u.addUserToChannelWorker(channels, throttle)
+	}
+
 	for _, mmchannel := range u.mc.GetChannels() {
+		logger.Debug("Adding channel", mmchannel)
+		channels <- mmchannel
+	}
+	close(channels)
+}
+
+func (u *User) addUserToChannelWorker(channels <-chan *model.Channel, throttle <-chan time.Time) {
+	for {
+		mmchannel, ok := <-channels
+		if !ok {
+			logger.Debug("Done adding user to channels")
+			return
+		}
+		logger.Debug("addUserToChannelWorker", mmchannel)
+
 		// exclude direct messages
 		if strings.Contains(mmchannel.Name, "__") {
 			continue
@@ -131,7 +150,7 @@ func (u *User) addUsersToChannels() {
 			channelName = u.mc.GetTeamName(mmchannel.TeamId) + "/" + mmchannel.Name
 		}
 		u.syncMMChannel(mmchannel.Id, channelName)
-		ch := srv.Channel(mmchannel.Id)
+		ch := u.Srv.Channel(mmchannel.Id)
 		// post everything to the channel you haven't seen yet
 		postlist := u.mc.GetPostsSince(mmchannel.Id, u.mc.GetLastViewedAt(mmchannel.Id))
 		if postlist == nil {
@@ -139,7 +158,7 @@ func (u *User) addUsersToChannels() {
 			if mmchannel.TeamId == u.mc.Team.Id {
 				logger.Errorf("something wrong with getPostsSince for channel %s (%s)", mmchannel.Id, mmchannel.Name)
 			}
-			return
+			continue
 		}
 		// traverse the order in reverse
 		for i := len(postlist.Order) - 1; i >= 0; i-- {
