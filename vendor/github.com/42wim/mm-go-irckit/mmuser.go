@@ -196,6 +196,16 @@ func (u *User) handleWsActionPost(rmsg *model.WebSocketEvent) {
 			return
 		}
 	}
+	if data.ParentId != "" {
+		parent, err := u.mc.Client.GetPost(data.ChannelId, data.ParentId, "")
+		if err != nil {
+			logger.Debugf("Unable to get parent post for", data)
+		} else {
+			parentPost := parent.Data.(*model.PostList).Posts[data.ParentId]
+			parentGhost := u.createMMUser(u.mc.GetUser(parentPost.UserId))
+			data.Message = fmt.Sprintf("%s (re @%s: %s)", data.Message, parentGhost.Nick, parentPost.Message)
+		}
+	}
 	// create new "ghost" user
 	ghost := u.createMMUser(u.mc.GetUser(data.UserId))
 	// our own message, set our IRC self as user, not our mattermost self
