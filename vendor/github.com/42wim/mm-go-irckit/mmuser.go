@@ -284,7 +284,7 @@ func (u *User) getFiles(files []string) []string {
 	for _, fname := range u.mc.GetPublicLinks(files) {
 		res = append(res, fname)
 	}
-	if len(files) == 0 {
+	if len(res) == 0 {
 		for _, file := range files {
 			info, err := u.mc.Client.GetFileInfo(file)
 			if err != nil {
