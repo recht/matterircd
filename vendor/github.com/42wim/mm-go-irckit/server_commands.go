@@ -68,11 +68,13 @@ func CmdIson(s Server, u *User, msg *irc.Message) error {
 func CmdJoin(s Server, u *User, msg *irc.Message) error {
 	var err error
 	channels := strings.Split(msg.Params[0], ",")
+	logger.Debug("CmdJoin", channels)
 	for _, channel := range channels {
 		channelName := strings.Replace(channel, "#", "", 1)
 		// you can only join existing channels
 		channelId := u.mc.GetChannelId(channelName, "")
 		err := u.mc.JoinChannel(channelId)
+		logger.Debugf("Join channel %s, id %s, err: %v", channelName, channelId, err)
 		if err != nil {
 			s.EncodeMessage(u, irc.ERR_INVITEONLYCHAN, []string{u.Nick, channel}, "Cannot join channel (+i)")
 			continue
