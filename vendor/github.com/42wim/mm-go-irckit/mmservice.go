@@ -16,9 +16,10 @@ type CommandHandler interface {
 }
 
 type Command struct {
-	handler func(u *User, toUser *User, args []string)
-	params  int
-	login   bool
+	handler   func(u *User, toUser *User, args []string)
+	minParams int
+	maxParams int
+	login     bool
 }
 
 func logout(u *User, toUser *User, args []string) {
@@ -162,14 +163,14 @@ func scrollback(u *User, toUser *User, args []string) {
 
 func api(u *User, toUser *User, args []string) {
 	var r *http.Response
-	var err error
-	if strings.ToLower(args[0]) == "get" {
+	var err error = nil
+	if strings.ToLower(args[0]) == "post" {
 		r, err = u.mc.Client.DoApiGet(args[1], "", "")
 	} else {
 		r, err = u.mc.Client.DoApiPost(args[1], strings.Join(args[2:], " "))
 	}
 	if err != nil {
-		u.MsgUser(toUser, fmt.Sprintf("API error", err.Error()))
+		u.MsgUser(toUser, fmt.Sprintf("API error: %s", err))
 		return
 	}
 	if r.Body != nil {
@@ -180,12 +181,12 @@ func api(u *User, toUser *User, args []string) {
 }
 
 var cmds = map[string]Command{
-	"logout":      Command{handler: logout, params: 0},
-	"login":       Command{handler: login},
-	"search":      Command{handler: search, login: true},
-	"searchusers": Command{handler: searchUsers, login: true},
-	"scrollback":  Command{handler: scrollback, login: true},
-	"api":         Command{handler: api, login: true},
+	"logout":      Command{handler: logout, minParams: 0, maxParams: 0},
+	"login":       Command{handler: login, minParams: 2, maxParams: 4},
+	"search":      Command{handler: search, login: true, minParams: 1, maxParams: -1},
+	"searchusers": Command{handler: searchUsers, login: true, minParams: 1, maxParams: -1},
+	"scrollback":  Command{handler: scrollback, login: true, minParams: 2, maxParams: 2},
+	"api":         Command{handler: api, login: true, minParams: 2, maxParams: -1},
 }
 
 func (u *User) handleMMServiceBot(toUser *User, msg string) {
@@ -205,6 +206,14 @@ func (u *User) handleMMServiceBot(toUser *User, msg string) {
 			u.MsgUser(toUser, "You're not logged in. Use LOGIN first.")
 			return
 		}
+	}
+	if cmd.minParams > len(commands[1:]) {
+		u.MsgUser(toUser, fmt.Sprintf("%s requires at least %v arguments", commands[0], cmd.minParams))
+		return
+	}
+	if cmd.maxParams > -1 && len(commands[1:]) > cmd.maxParams {
+		u.MsgUser(toUser, fmt.Sprintf("%s takes at most %v arguments", commands[0], cmd.maxParams))
+		return
 	}
 	cmd.handler(u, toUser, commands[1:])
 }
