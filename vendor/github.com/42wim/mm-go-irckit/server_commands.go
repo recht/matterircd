@@ -328,8 +328,29 @@ func CmdQuit(s Server, u *User, msg *irc.Message) error {
 func CmdTopic(s Server, u *User, msg *irc.Message) error {
 	channelname := msg.Params[0]
 	ch := s.Channel(channelname)
-	ch.Topic(u, msg.Trailing)
-	u.mc.UpdateChannelHeader(ch.ID(), msg.Trailing)
+	if msg.Trailing != "" {
+		ch.Topic(u, msg.Trailing)
+		u.mc.UpdateChannelHeader(ch.ID(), msg.Trailing)
+	} else {
+		r := make([]*irc.Message, 0, ch.Len()+1)
+		t := ch.GetTopic()
+		if t == "" {
+			r = append(r, &irc.Message{
+				Prefix:   s.Prefix(),
+				Params:   []string{u.Nick, channelname},
+				Command:  irc.RPL_NOTOPIC,
+				Trailing: "No topic is set",
+			})
+		} else {
+			r = append(r, &irc.Message{
+				Prefix:   s.Prefix(),
+				Params:   []string{u.Nick, channelname},
+				Command:  irc.RPL_TOPIC,
+				Trailing: t,
+			})
+		}
+		return u.Encode(r...)
+	}
 	return nil
 }
 
