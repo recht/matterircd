@@ -91,7 +91,6 @@ func (u *User) createMMUser(mmuser *model.User) *User {
 	ghost := &User{Nick: mmuser.Username, User: mmuser.Id, Real: mmuser.FirstName + " " + mmuser.LastName, Host: u.mc.Client.Url, Roles: mmuser.Roles, channels: map[Channel]struct{}{}}
 	ghost.MmGhostUser = true
 	u.Srv.Add(ghost)
-	go u.Srv.Handle(ghost)
 	return ghost
 }
 
@@ -99,7 +98,6 @@ func (u *User) createService(nick string, what string) {
 	service := &User{Nick: nick, User: nick, Real: what, Host: "service", channels: map[Channel]struct{}{}}
 	service.MmGhostUser = true
 	u.Srv.Add(service)
-	go u.Srv.Handle(service)
 }
 
 func (u *User) addUserToChannel(user *model.User, channel string, channelId string) {
