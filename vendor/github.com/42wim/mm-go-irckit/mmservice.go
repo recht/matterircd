@@ -164,7 +164,7 @@ func scrollback(u *User, toUser *User, args []string) {
 func api(u *User, toUser *User, args []string) {
 	var r *http.Response
 	var err error = nil
-	if strings.ToLower(args[0]) == "post" {
+	if strings.ToLower(args[0]) == "get" {
 		r, err = u.mc.Client.DoApiGet(args[1], "", "")
 	} else {
 		r, err = u.mc.Client.DoApiPost(args[1], strings.Join(args[2:], " "))
