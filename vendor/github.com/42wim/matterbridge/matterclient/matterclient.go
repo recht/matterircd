@@ -610,6 +610,8 @@ func (m *MMClient) GetTeamId() string {
 }
 
 func (m *MMClient) StatusLoop() {
+	retries := 0
+	backoff := time.Second * 60
 	for {
 		if m.WsQuit {
 			return
@@ -620,13 +622,19 @@ func (m *MMClient) StatusLoop() {
 			select {
 			case <-m.WsPingChan:
 				m.log.Debug("WS PONG received")
+				backoff = time.Second * 60
 			case <-time.After(time.Second * 5):
-				m.Logout()
-				m.WsQuit = false
-				m.Login()
+				if retries > 5 {
+					m.Logout()
+					m.WsQuit = false
+					m.Login()
+				} else {
+					retries++
+					backoff = time.Second * 10
+				}
 			}
 		}
-		time.Sleep(time.Second * 60)
+		time.Sleep(backoff)
 	}
 }
 
