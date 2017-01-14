@@ -386,12 +386,6 @@ func (u *User) checkWsActionMessage(rmsg *model.WebSocketEvent, throttle <-chan 
 	if rmsg.Data == nil {
 		return
 	}
-	userid, ok := rmsg.Data["user_id"].(string)
-	if ok {
-		if u.mc.GetUser(userid) == nil {
-			go u.mc.UpdateUsers()
-		}
-	}
 }
 
 func (u *User) MsgUser(toUser *User, msg string) {
