@@ -207,24 +207,25 @@ func (s *server) HasChannel(channelId string) (Channel, bool) {
 
 // Channel returns an existing or new channel with the give name.
 func (s *server) Channel(channelId string) Channel {
-	name := s.u.mc.GetChannelName(channelId)
-	teamId := s.u.mc.GetTeamFromChannel(channelId)
-	teamName := s.u.mc.GetTeamName(teamId)
-
-	if teamName != "" && teamId != s.u.mc.Team.Id {
-		name = "#" + teamName + "/" + name
-	}
-	if teamId == s.u.mc.Team.Id {
-		name = "#" + name
-	}
-	if name == "" {
-		name = channelId
-	}
 	s.Lock()
-	ch, ok := s.channels[name]
+	ch, ok := s.channels[channelId]
 	if !ok {
+		name := s.u.mc.GetChannelName(channelId)
+		teamId := s.u.mc.GetTeamFromChannel(channelId)
+		teamName := s.u.mc.GetTeamName(teamId)
+
+		if teamName != "" && teamId != s.u.mc.Team.Id {
+			name = "#" + teamName + "/" + name
+		}
+		if teamId == s.u.mc.Team.Id {
+			name = "#" + name
+		}
+		if name == "" {
+			name = channelId
+		}
 		newFn := s.config.NewChannel
 		ch = newFn(s, channelId, name)
+		s.channels[channelId] = ch
 		s.channels[name] = ch
 		s.Unlock()
 	} else {
@@ -240,6 +241,7 @@ func (s *server) UnlinkChannel(ch Channel) {
 	r := chStored == ch
 	if r {
 		delete(s.channels, ch.String())
+		delete(s.channels, ch.ID())
 	}
 	s.Unlock()
 }
