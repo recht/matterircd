@@ -14,6 +14,7 @@ func DefaultCommands() Commands {
 
 	cmds.Add(Handler{Command: irc.AWAY, Call: CmdAway, LoggedIn: true})
 	cmds.Add(Handler{Command: irc.ISON, Call: CmdIson})
+	cmds.Add(Handler{Command: irc.INVITE, Call: CmdInvite, LoggedIn: true, MinParams: 2})
 	cmds.Add(Handler{Command: irc.JOIN, Call: CmdJoin, MinParams: 1, LoggedIn: true})
 	cmds.Add(Handler{Command: irc.LIST, Call: CmdList, LoggedIn: true})
 	cmds.Add(Handler{Command: irc.LUSERS, Call: CmdLusers})
@@ -422,4 +423,25 @@ func CmdWhois(s Server, u *User, msg *irc.Message) error {
 		return u.Encode(r...)
 	}
 	return s.EncodeMessage(u, irc.ERR_NOSUCHNICK, msg.Params, "No such nick/channel")
+}
+
+func CmdInvite(s Server, u *User, msg *irc.Message) error {
+	who := msg.Params[0]
+	channel := msg.Params[1]
+	other, ok := s.HasUser(who)
+	if !ok {
+		return nil
+	}
+
+	channelName := strings.Replace(channel, "#", "", 1)
+	id := u.mc.GetChannelId(channelName, "")
+	if id == "" {
+		return nil
+	}
+	_, err := u.mc.Client.AddChannelMember(id, other.ID())
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
