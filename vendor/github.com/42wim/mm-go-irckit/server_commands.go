@@ -458,7 +458,7 @@ func CmdInvite(s Server, u *User, msg *irc.Message) error {
 	if id == "" {
 		return nil
 	}
-	_, err := u.mc.Client.AddChannelMember(id, other.ID())
+	_, err := u.mc.Client.AddChannelMember(id, other.User)
 	if err != nil {
 		return err
 	}
