@@ -259,6 +259,10 @@ func (u *User) handleWsActionPost(rmsg *model.WebSocketEvent) {
 			ch.Join(ghost)
 		}
 	}
+	if data.Type == "system_join_leave" {
+		logger.Debugf("join/leave message. not relaying %#v", data.Message)
+		return
+	}
 
 	// check if we have a override_username (from webhooks) and use it
 	for _, m := range msgs {
