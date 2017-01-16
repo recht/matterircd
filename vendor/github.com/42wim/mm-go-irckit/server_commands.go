@@ -16,6 +16,7 @@ func DefaultCommands() Commands {
 	cmds.Add(Handler{Command: irc.ISON, Call: CmdIson})
 	cmds.Add(Handler{Command: irc.INVITE, Call: CmdInvite, LoggedIn: true, MinParams: 2})
 	cmds.Add(Handler{Command: irc.JOIN, Call: CmdJoin, MinParams: 1, LoggedIn: true})
+	cmds.Add(Handler{Command: irc.KICK, Call: CmdKick, MinParams: 1, LoggedIn: true})
 	cmds.Add(Handler{Command: irc.LIST, Call: CmdList, LoggedIn: true})
 	cmds.Add(Handler{Command: irc.LUSERS, Call: CmdLusers})
 	cmds.Add(Handler{Command: irc.MODE, Call: CmdMode, MinParams: 1, LoggedIn: true})
@@ -463,5 +464,25 @@ func CmdInvite(s Server, u *User, msg *irc.Message) error {
 		return err
 	}
 
+	return nil
+}
+
+func CmdKick(s Server, u *User, msg *irc.Message) error {
+	channel := msg.Params[0]
+	who := msg.Params[1]
+
+	other, ok := s.HasUser(who)
+	if !ok {
+		return nil
+	}
+	channelName := strings.Replace(channel, "#", "", 1)
+	id := u.mc.GetChannelId(channelName, "")
+	if id == "" {
+		return nil
+	}
+	_, err := u.mc.Client.RemoveChannelMember(id, other.User)
+	if err != nil {
+		return err
+	}
 	return nil
 }
