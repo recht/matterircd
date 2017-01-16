@@ -612,9 +612,10 @@ func (m *MMClient) GetTeamId() string {
 	return m.Team.Id
 }
 
-func (m *MMClient) StatusLoop() {
+func (m *MMClient) StatusLoop(onConnect func()) {
 	retries := 0
 	backoff := time.Second * 60
+	onConnect()
 	for {
 		if m.WsQuit {
 			return
@@ -631,6 +632,7 @@ func (m *MMClient) StatusLoop() {
 					m.Logout()
 					m.WsQuit = false
 					m.Login()
+					onConnect()
 				} else {
 					retries++
 					backoff = time.Second * 10

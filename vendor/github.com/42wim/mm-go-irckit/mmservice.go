@@ -92,8 +92,7 @@ func login(u *User, toUser *User, args []string) {
 		u.MsgUser(toUser, err.Error())
 		return
 	}
-	u.addUsersToChannels()
-	go u.mc.StatusLoop()
+	go u.mc.StatusLoop(u.addUsersToChannels)
 	u.MsgUser(toUser, "login OK")
 
 }
