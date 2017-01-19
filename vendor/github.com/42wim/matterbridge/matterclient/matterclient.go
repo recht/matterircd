@@ -628,14 +628,14 @@ func (m *MMClient) StatusLoop(onConnect func()) {
 				m.log.Debug("WS PONG received")
 				backoff = time.Second * 60
 			case <-time.After(time.Second * 5):
-				if retries > 5 {
+				if retries > 3 {
 					m.Logout()
 					m.WsQuit = false
 					m.Login()
 					onConnect()
 				} else {
 					retries++
-					backoff = time.Second * 10
+					backoff = time.Second * 5
 				}
 			}
 		}
