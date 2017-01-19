@@ -1614,6 +1614,17 @@ func (c *Client) GetStatuses() (*Result, *AppError) {
 	}
 }
 
+// SetStatus sets the current status of the user. Status should be online/away/offline
+func (c *Client) SetStatus(status string) (*Result, *AppError) {
+	if r, err := c.DoApiPost("/users/status", status); err != nil {
+		return nil, err
+	} else {
+		defer closeBody(r)
+		return &Result{r.Header.Get(HEADER_REQUEST_ID),
+			r.Header.Get(HEADER_ETAG_SERVER), MapFromJson(r.Body)}, nil
+	}
+}
+
 // GetStatusesByIds returns a map of string statuses using user id as the key,
 // based on the provided user ids
 func (c *Client) GetStatusesByIds(userIds []string) (*Result, *AppError) {
