@@ -442,11 +442,11 @@ func (u *User) syncMMChannel(id string, name string) {
 		// join all the channels we're on on MM
 		if user.Id == u.mc.User.Id {
 			ch := srv.Channel(id)
-			ch.Topic(u, u.mc.GetChannelHeader(id))
 			// only join when we're not yet on the channel
 			if !ch.HasUser(u) {
 				logger.Debugf("syncMMChannel adding myself to %s (id: %s)", name, id)
 				ch.Join(u)
+				ch.Topic(u, u.mc.GetChannelHeader(id))
 			}
 			break
 		}
