@@ -10,6 +10,7 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
@@ -221,6 +222,8 @@ func (d *Dialer) Dial(urlStr string, requestHeader http.Header) (*Conn, *http.Re
 	req.Header["Connection"] = []string{"Upgrade"}
 	req.Header["Sec-WebSocket-Key"] = []string{challengeKey}
 	req.Header["Sec-WebSocket-Version"] = []string{"13"}
+	req.Header["Origin"] = []string{fmt.Sprintf("%s://%s", u.Scheme, u.Host)}
+
 	if len(d.Subprotocols) > 0 {
 		req.Header["Sec-WebSocket-Protocol"] = []string{strings.Join(d.Subprotocols, ", ")}
 	}
