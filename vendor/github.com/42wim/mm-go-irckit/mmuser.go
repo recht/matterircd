@@ -169,6 +169,9 @@ func (u *User) addUserToChannelWorker(channels <-chan *model.Channel, throttle <
 		// traverse the order in reverse
 		for i := len(postlist.Order) - 1; i >= 0; i-- {
 			p := postlist.Posts[postlist.Order[i]]
+			if p.Type == model.POST_JOIN_LEAVE {
+				continue
+			}
 			ts := time.Unix(0, p.CreateAt*int64(time.Millisecond))
 			for _, post := range strings.Split(p.Message, "\n") {
 				if user, ok := u.mc.Users[p.UserId]; ok {
@@ -223,7 +226,7 @@ func (u *User) handleWsActionPost(rmsg *model.WebSocketEvent) {
 			logger.Debugf("message is sent from IRC, contains unicode, not relaying %#v", data.Message)
 			return
 		}
-		if data.Type == "system_join_leave" {
+		if data.Type == model.POST_JOIN_LEAVE {
 			logger.Debugf("our own join/leave message. not relaying %#v", data.Message)
 			return
 		}
@@ -245,7 +248,10 @@ func (u *User) handleWsActionPost(rmsg *model.WebSocketEvent) {
 		ghost = u
 	}
 
-	spoofUsername := ghost.Nick
+	spoofUsername := data.UserId
+	if ghost != nil {
+		spoofUsername = ghost.Nick
+	}
 	// check if we have a override_username (from webhooks) and use it
 	overrideUsername, _ := extraProps["override_username"].(string)
 	if overrideUsername != "" {
@@ -266,14 +272,14 @@ func (u *User) handleWsActionPost(rmsg *model.WebSocketEvent) {
 	}
 
 	// not a private message so do channel stuff
-	if props["channel_type"] != "D" {
+	if props["channel_type"] != "D" && ghost != nil {
 		ch = u.Srv.Channel(data.ChannelId)
 		// join if not in channel
 		if !ch.HasUser(ghost) {
 			ch.Join(ghost)
 		}
 	}
-	if data.Type == "system_join_leave" {
+	if data.Type == model.POST_JOIN_LEAVE {
 		logger.Debugf("join/leave message. not relaying %#v", data.Message)
 		return
 	}
