@@ -38,9 +38,10 @@ const (
 	DIRECT_MESSAGE_ANY  = "any"
 	DIRECT_MESSAGE_TEAM = "team"
 
-	PERMISSIONS_ALL          = "all"
-	PERMISSIONS_TEAM_ADMIN   = "team_admin"
-	PERMISSIONS_SYSTEM_ADMIN = "system_admin"
+	PERMISSIONS_ALL           = "all"
+	PERMISSIONS_CHANNEL_ADMIN = "channel_admin"
+	PERMISSIONS_TEAM_ADMIN    = "team_admin"
+	PERMISSIONS_SYSTEM_ADMIN  = "system_admin"
 
 	FAKE_SETTING = "********************************"
 
@@ -48,54 +49,125 @@ const (
 	RESTRICT_EMOJI_CREATION_ADMIN        = "admin"
 	RESTRICT_EMOJI_CREATION_SYSTEM_ADMIN = "system_admin"
 
+	PERMISSIONS_DELETE_POST_ALL          = "all"
+	PERMISSIONS_DELETE_POST_TEAM_ADMIN   = "team_admin"
+	PERMISSIONS_DELETE_POST_SYSTEM_ADMIN = "system_admin"
+
+	ALLOW_EDIT_POST_ALWAYS     = "always"
+	ALLOW_EDIT_POST_NEVER      = "never"
+	ALLOW_EDIT_POST_TIME_LIMIT = "time_limit"
+
 	EMAIL_BATCHING_BUFFER_SIZE = 256
 	EMAIL_BATCHING_INTERVAL    = 30
 
 	SITENAME_MAX_LENGTH = 30
+
+	SERVICE_SETTINGS_DEFAULT_SITE_URL        = ""
+	SERVICE_SETTINGS_DEFAULT_TLS_CERT_FILE   = ""
+	SERVICE_SETTINGS_DEFAULT_TLS_KEY_FILE    = ""
+	SERVICE_SETTINGS_DEFAULT_READ_TIMEOUT    = 300
+	SERVICE_SETTINGS_DEFAULT_WRITE_TIMEOUT   = 300
+	SERVICE_SETTINGS_DEFAULT_ALLOW_CORS_FROM = ""
+
+	TEAM_SETTINGS_DEFAULT_CUSTOM_BRAND_TEXT        = ""
+	TEAM_SETTINGS_DEFAULT_CUSTOM_DESCRIPTION_TEXT  = ""
+	TEAM_SETTINGS_DEFAULT_USER_STATUS_AWAY_TIMEOUT = 300
+
+	EMAIL_SETTINGS_DEFAULT_FEEDBACK_ORGANIZATION = ""
+
+	SUPPORT_SETTINGS_DEFAULT_TERMS_OF_SERVICE_LINK = "https://about.mattermost.com/default-terms/"
+	SUPPORT_SETTINGS_DEFAULT_PRIVACY_POLICY_LINK   = "https://about.mattermost.com/default-privacy-policy/"
+	SUPPORT_SETTINGS_DEFAULT_ABOUT_LINK            = "https://about.mattermost.com/default-about/"
+	SUPPORT_SETTINGS_DEFAULT_HELP_LINK             = "https://about.mattermost.com/default-help/"
+	SUPPORT_SETTINGS_DEFAULT_REPORT_A_PROBLEM_LINK = "https://about.mattermost.com/default-report-a-problem/"
+	SUPPORT_SETTINGS_DEFAULT_SUPPORT_EMAIL         = "feedback@mattermost.com"
+
+	LDAP_SETTINGS_DEFAULT_FIRST_NAME_ATTRIBUTE = ""
+	LDAP_SETTINGS_DEFAULT_LAST_NAME_ATTRIBUTE  = ""
+	LDAP_SETTINGS_DEFAULT_EMAIL_ATTRIBUTE      = ""
+	LDAP_SETTINGS_DEFAULT_USERNAME_ATTRIBUTE   = ""
+	LDAP_SETTINGS_DEFAULT_NICKNAME_ATTRIBUTE   = ""
+	LDAP_SETTINGS_DEFAULT_ID_ATTRIBUTE         = ""
+	LDAP_SETTINGS_DEFAULT_POSITION_ATTRIBUTE   = ""
+	LDAP_SETTINGS_DEFAULT_LOGIN_FIELD_NAME     = ""
+
+	SAML_SETTINGS_DEFAULT_FIRST_NAME_ATTRIBUTE = ""
+	SAML_SETTINGS_DEFAULT_LAST_NAME_ATTRIBUTE  = ""
+	SAML_SETTINGS_DEFAULT_EMAIL_ATTRIBUTE      = ""
+	SAML_SETTINGS_DEFAULT_USERNAME_ATTRIBUTE   = ""
+	SAML_SETTINGS_DEFAULT_NICKNAME_ATTRIBUTE   = ""
+	SAML_SETTINGS_DEFAULT_LOCALE_ATTRIBUTE     = ""
+	SAML_SETTINGS_DEFAULT_POSITION_ATTRIBUTE   = ""
+
+	NATIVEAPP_SETTINGS_DEFAULT_APP_DOWNLOAD_LINK         = "https://about.mattermost.com/downloads/"
+	NATIVEAPP_SETTINGS_DEFAULT_ANDROID_APP_DOWNLOAD_LINK = "https://about.mattermost.com/mattermost-android-app/"
+	NATIVEAPP_SETTINGS_DEFAULT_IOS_APP_DOWNLOAD_LINK     = "https://about.mattermost.com/mattermost-ios-app/"
+
+	WEBRTC_SETTINGS_DEFAULT_STUN_URI = ""
+	WEBRTC_SETTINGS_DEFAULT_TURN_URI = ""
+
+	ANALYTICS_SETTINGS_DEFAULT_MAX_USERS_FOR_STATISTICS = 2500
 )
 
 type ServiceSettings struct {
-	SiteURL                           *string
-	ListenAddress                     string
-	ConnectionSecurity                *string
-	TLSCertFile                       *string
-	TLSKeyFile                        *string
-	UseLetsEncrypt                    *bool
-	LetsEncryptCertificateCacheFile   *string
-	Forward80To443                    *bool
-	ReadTimeout                       *int
-	WriteTimeout                      *int
-	MaximumLoginAttempts              int
-	SegmentDeveloperKey               string
-	GoogleDeveloperKey                string
-	EnableOAuthServiceProvider        bool
-	EnableIncomingWebhooks            bool
-	EnableOutgoingWebhooks            bool
-	EnableCommands                    *bool
-	EnableOnlyAdminIntegrations       *bool
-	EnablePostUsernameOverride        bool
-	EnablePostIconOverride            bool
-	EnableTesting                     bool
-	EnableDeveloper                   *bool
-	EnableSecurityFixAlert            *bool
-	EnableInsecureOutgoingConnections *bool
-	EnableMultifactorAuthentication   *bool
-	AllowCorsFrom                     *string
-	SessionLengthWebInDays            *int
-	SessionLengthMobileInDays         *int
-	SessionLengthSSOInDays            *int
-	SessionCacheInMinutes             *int
-	WebsocketSecurePort               *int
-	WebsocketPort                     *int
-	WebserverMode                     *string
-	EnableCustomEmoji                 *bool
-	RestrictCustomEmojiCreation       *string
+	SiteURL                                  *string
+	ListenAddress                            string
+	ConnectionSecurity                       *string
+	TLSCertFile                              *string
+	TLSKeyFile                               *string
+	UseLetsEncrypt                           *bool
+	LetsEncryptCertificateCacheFile          *string
+	Forward80To443                           *bool
+	ReadTimeout                              *int
+	WriteTimeout                             *int
+	MaximumLoginAttempts                     int
+	GoogleDeveloperKey                       string
+	EnableOAuthServiceProvider               bool
+	EnableIncomingWebhooks                   bool
+	EnableOutgoingWebhooks                   bool
+	EnableCommands                           *bool
+	EnableOnlyAdminIntegrations              *bool
+	EnablePostUsernameOverride               bool
+	EnablePostIconOverride                   bool
+	EnableLinkPreviews                       *bool
+	EnableTesting                            bool
+	EnableDeveloper                          *bool
+	EnableSecurityFixAlert                   *bool
+	EnableInsecureOutgoingConnections        *bool
+	EnableMultifactorAuthentication          *bool
+	EnforceMultifactorAuthentication         *bool
+	AllowCorsFrom                            *string
+	SessionLengthWebInDays                   *int
+	SessionLengthMobileInDays                *int
+	SessionLengthSSOInDays                   *int
+	SessionCacheInMinutes                    *int
+	WebsocketSecurePort                      *int
+	WebsocketPort                            *int
+	WebserverMode                            *string
+	EnableCustomEmoji                        *bool
+	RestrictCustomEmojiCreation              *string
+	RestrictPostDelete                       *string
+	AllowEditPost                            *string
+	PostEditTimeLimit                        *int
+	TimeBetweenUserTypingUpdatesMilliseconds *int64
+	EnableUserTypingMessages                 *bool
+	ClusterLogTimeoutMilliseconds            *int
 }
 
 type ClusterSettings struct {
 	Enable                 *bool
 	InterNodeListenAddress *string
 	InterNodeUrls          []string
+}
+
+type MetricsSettings struct {
+	Enable           *bool
+	BlockProfileRate *int
+	ListenAddress    *string
+}
+
+type AnalyticsSettings struct {
+	MaxUsersForStatistics *int
 }
 
 type SSOSettings struct {
@@ -219,8 +291,13 @@ type TeamSettings struct {
 	RestrictTeamInvite               *string
 	RestrictPublicChannelManagement  *string
 	RestrictPrivateChannelManagement *string
+	RestrictPublicChannelCreation    *string
+	RestrictPrivateChannelCreation   *string
+	RestrictPublicChannelDeletion    *string
+	RestrictPrivateChannelDeletion   *string
 	UserStatusAwayTimeout            *int64
 	MaxChannelsPerTeam               *int64
+	MaxNotificationsPerChannel       *int64
 }
 
 type LdapSettings struct {
@@ -243,6 +320,7 @@ type LdapSettings struct {
 	UsernameAttribute  *string
 	NicknameAttribute  *string
 	IdAttribute        *string
+	PositionAttribute  *string
 
 	// Syncronization
 	SyncIntervalMinutes *int
@@ -289,6 +367,7 @@ type SamlSettings struct {
 	UsernameAttribute  *string
 	NicknameAttribute  *string
 	LocaleAttribute    *string
+	PositionAttribute  *string
 
 	LoginButtonText *string
 }
@@ -330,6 +409,8 @@ type Config struct {
 	SamlSettings         SamlSettings
 	NativeAppSettings    NativeAppSettings
 	ClusterSettings      ClusterSettings
+	MetricsSettings      MetricsSettings
+	AnalyticsSettings    AnalyticsSettings
 	WebrtcSettings       WebrtcSettings
 }
 
@@ -376,21 +457,30 @@ func (o *Config) SetDefaults() {
 		// Defaults to "s3.amazonaws.com"
 		o.FileSettings.AmazonS3Endpoint = "s3.amazonaws.com"
 	}
+
 	if o.FileSettings.AmazonS3Region == "" {
 		// Defaults to "us-east-1" region.
 		o.FileSettings.AmazonS3Region = "us-east-1"
 	}
+
 	if o.FileSettings.AmazonS3SSL == nil {
 		o.FileSettings.AmazonS3SSL = new(bool)
 		*o.FileSettings.AmazonS3SSL = true // Secure by default.
 	}
+
 	if o.FileSettings.MaxFileSize == nil {
 		o.FileSettings.MaxFileSize = new(int64)
 		*o.FileSettings.MaxFileSize = 52428800 // 50 MB
 	}
+
 	if len(*o.FileSettings.PublicLinkSalt) == 0 {
 		o.FileSettings.PublicLinkSalt = new(string)
 		*o.FileSettings.PublicLinkSalt = NewRandomString(32)
+	}
+
+	if o.FileSettings.InitialFont == "" {
+		// Defaults to "luximbi.ttf"
+		o.FileSettings.InitialFont = "luximbi.ttf"
 	}
 
 	if len(o.EmailSettings.InviteSalt) == 0 {
@@ -403,7 +493,12 @@ func (o *Config) SetDefaults() {
 
 	if o.ServiceSettings.SiteURL == nil {
 		o.ServiceSettings.SiteURL = new(string)
-		*o.ServiceSettings.SiteURL = ""
+		*o.ServiceSettings.SiteURL = SERVICE_SETTINGS_DEFAULT_SITE_URL
+	}
+
+	if o.ServiceSettings.EnableLinkPreviews == nil {
+		o.ServiceSettings.EnableLinkPreviews = new(bool)
+		*o.ServiceSettings.EnableLinkPreviews = false
 	}
 
 	if o.ServiceSettings.EnableDeveloper == nil {
@@ -424,6 +519,11 @@ func (o *Config) SetDefaults() {
 	if o.ServiceSettings.EnableMultifactorAuthentication == nil {
 		o.ServiceSettings.EnableMultifactorAuthentication = new(bool)
 		*o.ServiceSettings.EnableMultifactorAuthentication = false
+	}
+
+	if o.ServiceSettings.EnforceMultifactorAuthentication == nil {
+		o.ServiceSettings.EnforceMultifactorAuthentication = new(bool)
+		*o.ServiceSettings.EnforceMultifactorAuthentication = false
 	}
 
 	if o.PasswordSettings.MinimumLength == nil {
@@ -458,12 +558,12 @@ func (o *Config) SetDefaults() {
 
 	if o.TeamSettings.CustomBrandText == nil {
 		o.TeamSettings.CustomBrandText = new(string)
-		*o.TeamSettings.CustomBrandText = ""
+		*o.TeamSettings.CustomBrandText = TEAM_SETTINGS_DEFAULT_CUSTOM_BRAND_TEXT
 	}
 
 	if o.TeamSettings.CustomDescriptionText == nil {
 		o.TeamSettings.CustomDescriptionText = new(string)
-		*o.TeamSettings.CustomDescriptionText = ""
+		*o.TeamSettings.CustomDescriptionText = TEAM_SETTINGS_DEFAULT_CUSTOM_DESCRIPTION_TEXT
 	}
 
 	if o.TeamSettings.EnableOpenServer == nil {
@@ -491,14 +591,43 @@ func (o *Config) SetDefaults() {
 		*o.TeamSettings.RestrictPrivateChannelManagement = PERMISSIONS_ALL
 	}
 
+	if o.TeamSettings.RestrictPublicChannelCreation == nil {
+		o.TeamSettings.RestrictPublicChannelCreation = new(string)
+		// If this setting does not exist, assume migration from <3.6, so use management setting as default.
+		*o.TeamSettings.RestrictPublicChannelCreation = *o.TeamSettings.RestrictPublicChannelManagement
+	}
+
+	if o.TeamSettings.RestrictPrivateChannelCreation == nil {
+		o.TeamSettings.RestrictPrivateChannelCreation = new(string)
+		// If this setting does not exist, assume migration from <3.6, so use management setting as default.
+		*o.TeamSettings.RestrictPrivateChannelCreation = *o.TeamSettings.RestrictPrivateChannelManagement
+	}
+
+	if o.TeamSettings.RestrictPublicChannelDeletion == nil {
+		o.TeamSettings.RestrictPublicChannelDeletion = new(string)
+		// If this setting does not exist, assume migration from <3.6, so use management setting as default.
+		*o.TeamSettings.RestrictPublicChannelDeletion = *o.TeamSettings.RestrictPublicChannelManagement
+	}
+
+	if o.TeamSettings.RestrictPrivateChannelDeletion == nil {
+		o.TeamSettings.RestrictPrivateChannelDeletion = new(string)
+		// If this setting does not exist, assume migration from <3.6, so use management setting as default.
+		*o.TeamSettings.RestrictPrivateChannelDeletion = *o.TeamSettings.RestrictPrivateChannelManagement
+	}
+
 	if o.TeamSettings.UserStatusAwayTimeout == nil {
 		o.TeamSettings.UserStatusAwayTimeout = new(int64)
-		*o.TeamSettings.UserStatusAwayTimeout = 300
+		*o.TeamSettings.UserStatusAwayTimeout = TEAM_SETTINGS_DEFAULT_USER_STATUS_AWAY_TIMEOUT
 	}
 
 	if o.TeamSettings.MaxChannelsPerTeam == nil {
 		o.TeamSettings.MaxChannelsPerTeam = new(int64)
 		*o.TeamSettings.MaxChannelsPerTeam = 2000
+	}
+
+	if o.TeamSettings.MaxNotificationsPerChannel == nil {
+		o.TeamSettings.MaxNotificationsPerChannel = new(int64)
+		*o.TeamSettings.MaxNotificationsPerChannel = 1000
 	}
 
 	if o.EmailSettings.EnableSignInWithEmail == nil {
@@ -533,7 +662,7 @@ func (o *Config) SetDefaults() {
 
 	if o.EmailSettings.FeedbackOrganization == nil {
 		o.EmailSettings.FeedbackOrganization = new(string)
-		*o.EmailSettings.FeedbackOrganization = ""
+		*o.EmailSettings.FeedbackOrganization = EMAIL_SETTINGS_DEFAULT_FEEDBACK_ORGANIZATION
 	}
 
 	if o.EmailSettings.EnableEmailBatching == nil {
@@ -557,7 +686,7 @@ func (o *Config) SetDefaults() {
 
 	if o.SupportSettings.TermsOfServiceLink == nil {
 		o.SupportSettings.TermsOfServiceLink = new(string)
-		*o.SupportSettings.TermsOfServiceLink = "https://about.mattermost.com/default-terms/"
+		*o.SupportSettings.TermsOfServiceLink = SUPPORT_SETTINGS_DEFAULT_TERMS_OF_SERVICE_LINK
 	}
 
 	if !IsSafeLink(o.SupportSettings.PrivacyPolicyLink) {
@@ -566,7 +695,7 @@ func (o *Config) SetDefaults() {
 
 	if o.SupportSettings.PrivacyPolicyLink == nil {
 		o.SupportSettings.PrivacyPolicyLink = new(string)
-		*o.SupportSettings.PrivacyPolicyLink = ""
+		*o.SupportSettings.PrivacyPolicyLink = SUPPORT_SETTINGS_DEFAULT_PRIVACY_POLICY_LINK
 	}
 
 	if !IsSafeLink(o.SupportSettings.AboutLink) {
@@ -575,7 +704,7 @@ func (o *Config) SetDefaults() {
 
 	if o.SupportSettings.AboutLink == nil {
 		o.SupportSettings.AboutLink = new(string)
-		*o.SupportSettings.AboutLink = ""
+		*o.SupportSettings.AboutLink = SUPPORT_SETTINGS_DEFAULT_ABOUT_LINK
 	}
 
 	if !IsSafeLink(o.SupportSettings.HelpLink) {
@@ -584,7 +713,7 @@ func (o *Config) SetDefaults() {
 
 	if o.SupportSettings.HelpLink == nil {
 		o.SupportSettings.HelpLink = new(string)
-		*o.SupportSettings.HelpLink = ""
+		*o.SupportSettings.HelpLink = SUPPORT_SETTINGS_DEFAULT_HELP_LINK
 	}
 
 	if !IsSafeLink(o.SupportSettings.ReportAProblemLink) {
@@ -593,12 +722,12 @@ func (o *Config) SetDefaults() {
 
 	if o.SupportSettings.ReportAProblemLink == nil {
 		o.SupportSettings.ReportAProblemLink = new(string)
-		*o.SupportSettings.ReportAProblemLink = ""
+		*o.SupportSettings.ReportAProblemLink = SUPPORT_SETTINGS_DEFAULT_REPORT_A_PROBLEM_LINK
 	}
 
 	if o.SupportSettings.SupportEmail == nil {
 		o.SupportSettings.SupportEmail = new(string)
-		*o.SupportSettings.SupportEmail = "feedback@mattermost.com"
+		*o.SupportSettings.SupportEmail = SUPPORT_SETTINGS_DEFAULT_SUPPORT_EMAIL
 	}
 
 	if o.LdapSettings.Enable == nil {
@@ -643,32 +772,37 @@ func (o *Config) SetDefaults() {
 
 	if o.LdapSettings.FirstNameAttribute == nil {
 		o.LdapSettings.FirstNameAttribute = new(string)
-		*o.LdapSettings.FirstNameAttribute = ""
+		*o.LdapSettings.FirstNameAttribute = LDAP_SETTINGS_DEFAULT_FIRST_NAME_ATTRIBUTE
 	}
 
 	if o.LdapSettings.LastNameAttribute == nil {
 		o.LdapSettings.LastNameAttribute = new(string)
-		*o.LdapSettings.LastNameAttribute = ""
+		*o.LdapSettings.LastNameAttribute = LDAP_SETTINGS_DEFAULT_LAST_NAME_ATTRIBUTE
 	}
 
 	if o.LdapSettings.EmailAttribute == nil {
 		o.LdapSettings.EmailAttribute = new(string)
-		*o.LdapSettings.EmailAttribute = ""
+		*o.LdapSettings.EmailAttribute = LDAP_SETTINGS_DEFAULT_EMAIL_ATTRIBUTE
 	}
 
 	if o.LdapSettings.UsernameAttribute == nil {
 		o.LdapSettings.UsernameAttribute = new(string)
-		*o.LdapSettings.UsernameAttribute = ""
+		*o.LdapSettings.UsernameAttribute = LDAP_SETTINGS_DEFAULT_USERNAME_ATTRIBUTE
 	}
 
 	if o.LdapSettings.NicknameAttribute == nil {
 		o.LdapSettings.NicknameAttribute = new(string)
-		*o.LdapSettings.NicknameAttribute = ""
+		*o.LdapSettings.NicknameAttribute = LDAP_SETTINGS_DEFAULT_NICKNAME_ATTRIBUTE
 	}
 
 	if o.LdapSettings.IdAttribute == nil {
 		o.LdapSettings.IdAttribute = new(string)
-		*o.LdapSettings.IdAttribute = ""
+		*o.LdapSettings.IdAttribute = LDAP_SETTINGS_DEFAULT_ID_ATTRIBUTE
+	}
+
+	if o.LdapSettings.PositionAttribute == nil {
+		o.LdapSettings.PositionAttribute = new(string)
+		*o.LdapSettings.PositionAttribute = LDAP_SETTINGS_DEFAULT_POSITION_ATTRIBUTE
 	}
 
 	if o.LdapSettings.SyncIntervalMinutes == nil {
@@ -693,7 +827,7 @@ func (o *Config) SetDefaults() {
 
 	if o.LdapSettings.LoginFieldName == nil {
 		o.LdapSettings.LoginFieldName = new(string)
-		*o.LdapSettings.LoginFieldName = ""
+		*o.LdapSettings.LoginFieldName = LDAP_SETTINGS_DEFAULT_LOGIN_FIELD_NAME
 	}
 
 	if o.ServiceSettings.SessionLengthWebInDays == nil {
@@ -738,7 +872,7 @@ func (o *Config) SetDefaults() {
 
 	if o.ServiceSettings.AllowCorsFrom == nil {
 		o.ServiceSettings.AllowCorsFrom = new(string)
-		*o.ServiceSettings.AllowCorsFrom = ""
+		*o.ServiceSettings.AllowCorsFrom = SERVICE_SETTINGS_DEFAULT_ALLOW_CORS_FROM
 	}
 
 	if o.ServiceSettings.WebserverMode == nil {
@@ -758,6 +892,21 @@ func (o *Config) SetDefaults() {
 		*o.ServiceSettings.RestrictCustomEmojiCreation = RESTRICT_EMOJI_CREATION_ALL
 	}
 
+	if o.ServiceSettings.RestrictPostDelete == nil {
+		o.ServiceSettings.RestrictPostDelete = new(string)
+		*o.ServiceSettings.RestrictPostDelete = PERMISSIONS_DELETE_POST_ALL
+	}
+
+	if o.ServiceSettings.AllowEditPost == nil {
+		o.ServiceSettings.AllowEditPost = new(string)
+		*o.ServiceSettings.AllowEditPost = ALLOW_EDIT_POST_ALWAYS
+	}
+
+	if o.ServiceSettings.PostEditTimeLimit == nil {
+		o.ServiceSettings.PostEditTimeLimit = new(int)
+		*o.ServiceSettings.PostEditTimeLimit = 300
+	}
+
 	if o.ClusterSettings.InterNodeListenAddress == nil {
 		o.ClusterSettings.InterNodeListenAddress = new(string)
 		*o.ClusterSettings.InterNodeListenAddress = ":8075"
@@ -770,6 +919,21 @@ func (o *Config) SetDefaults() {
 
 	if o.ClusterSettings.InterNodeUrls == nil {
 		o.ClusterSettings.InterNodeUrls = []string{}
+	}
+
+	if o.MetricsSettings.ListenAddress == nil {
+		o.MetricsSettings.ListenAddress = new(string)
+		*o.MetricsSettings.ListenAddress = ":8067"
+	}
+
+	if o.MetricsSettings.Enable == nil {
+		o.MetricsSettings.Enable = new(bool)
+		*o.MetricsSettings.Enable = false
+	}
+
+	if o.AnalyticsSettings.MaxUsersForStatistics == nil {
+		o.AnalyticsSettings.MaxUsersForStatistics = new(int)
+		*o.AnalyticsSettings.MaxUsersForStatistics = ANALYTICS_SETTINGS_DEFAULT_MAX_USERS_FOR_STATISTICS
 	}
 
 	if o.ComplianceSettings.Enable == nil {
@@ -859,47 +1023,52 @@ func (o *Config) SetDefaults() {
 
 	if o.SamlSettings.FirstNameAttribute == nil {
 		o.SamlSettings.FirstNameAttribute = new(string)
-		*o.SamlSettings.FirstNameAttribute = ""
+		*o.SamlSettings.FirstNameAttribute = SAML_SETTINGS_DEFAULT_FIRST_NAME_ATTRIBUTE
 	}
 
 	if o.SamlSettings.LastNameAttribute == nil {
 		o.SamlSettings.LastNameAttribute = new(string)
-		*o.SamlSettings.LastNameAttribute = ""
+		*o.SamlSettings.LastNameAttribute = SAML_SETTINGS_DEFAULT_LAST_NAME_ATTRIBUTE
 	}
 
 	if o.SamlSettings.EmailAttribute == nil {
 		o.SamlSettings.EmailAttribute = new(string)
-		*o.SamlSettings.EmailAttribute = ""
+		*o.SamlSettings.EmailAttribute = SAML_SETTINGS_DEFAULT_EMAIL_ATTRIBUTE
 	}
 
 	if o.SamlSettings.UsernameAttribute == nil {
 		o.SamlSettings.UsernameAttribute = new(string)
-		*o.SamlSettings.UsernameAttribute = ""
+		*o.SamlSettings.UsernameAttribute = SAML_SETTINGS_DEFAULT_USERNAME_ATTRIBUTE
 	}
 
 	if o.SamlSettings.NicknameAttribute == nil {
 		o.SamlSettings.NicknameAttribute = new(string)
-		*o.SamlSettings.NicknameAttribute = ""
+		*o.SamlSettings.NicknameAttribute = SAML_SETTINGS_DEFAULT_NICKNAME_ATTRIBUTE
+	}
+
+	if o.SamlSettings.PositionAttribute == nil {
+		o.SamlSettings.PositionAttribute = new(string)
+		*o.SamlSettings.PositionAttribute = SAML_SETTINGS_DEFAULT_POSITION_ATTRIBUTE
 	}
 
 	if o.SamlSettings.LocaleAttribute == nil {
 		o.SamlSettings.LocaleAttribute = new(string)
-		*o.SamlSettings.LocaleAttribute = ""
+		*o.SamlSettings.LocaleAttribute = SAML_SETTINGS_DEFAULT_LOCALE_ATTRIBUTE
 	}
 
 	if o.NativeAppSettings.AppDownloadLink == nil {
 		o.NativeAppSettings.AppDownloadLink = new(string)
-		*o.NativeAppSettings.AppDownloadLink = "https://about.mattermost.com/downloads/"
+		*o.NativeAppSettings.AppDownloadLink = NATIVEAPP_SETTINGS_DEFAULT_APP_DOWNLOAD_LINK
 	}
 
 	if o.NativeAppSettings.AndroidAppDownloadLink == nil {
 		o.NativeAppSettings.AndroidAppDownloadLink = new(string)
-		*o.NativeAppSettings.AndroidAppDownloadLink = "https://about.mattermost.com/mattermost-android-app/"
+		*o.NativeAppSettings.AndroidAppDownloadLink = NATIVEAPP_SETTINGS_DEFAULT_ANDROID_APP_DOWNLOAD_LINK
 	}
 
 	if o.NativeAppSettings.IosAppDownloadLink == nil {
 		o.NativeAppSettings.IosAppDownloadLink = new(string)
-		*o.NativeAppSettings.IosAppDownloadLink = "https://about.mattermost.com/mattermost-ios-app/"
+		*o.NativeAppSettings.IosAppDownloadLink = NATIVEAPP_SETTINGS_DEFAULT_IOS_APP_DOWNLOAD_LINK
 	}
 
 	if o.RateLimitSettings.Enable == nil {
@@ -919,12 +1088,12 @@ func (o *Config) SetDefaults() {
 
 	if o.ServiceSettings.TLSKeyFile == nil {
 		o.ServiceSettings.TLSKeyFile = new(string)
-		*o.ServiceSettings.TLSKeyFile = ""
+		*o.ServiceSettings.TLSKeyFile = SERVICE_SETTINGS_DEFAULT_TLS_KEY_FILE
 	}
 
 	if o.ServiceSettings.TLSCertFile == nil {
 		o.ServiceSettings.TLSCertFile = new(string)
-		*o.ServiceSettings.TLSCertFile = ""
+		*o.ServiceSettings.TLSCertFile = SERVICE_SETTINGS_DEFAULT_TLS_CERT_FILE
 	}
 
 	if o.ServiceSettings.UseLetsEncrypt == nil {
@@ -939,17 +1108,37 @@ func (o *Config) SetDefaults() {
 
 	if o.ServiceSettings.ReadTimeout == nil {
 		o.ServiceSettings.ReadTimeout = new(int)
-		*o.ServiceSettings.ReadTimeout = 300
+		*o.ServiceSettings.ReadTimeout = SERVICE_SETTINGS_DEFAULT_READ_TIMEOUT
 	}
 
 	if o.ServiceSettings.WriteTimeout == nil {
 		o.ServiceSettings.WriteTimeout = new(int)
-		*o.ServiceSettings.WriteTimeout = 300
+		*o.ServiceSettings.WriteTimeout = SERVICE_SETTINGS_DEFAULT_WRITE_TIMEOUT
 	}
 
 	if o.ServiceSettings.Forward80To443 == nil {
 		o.ServiceSettings.Forward80To443 = new(bool)
 		*o.ServiceSettings.Forward80To443 = false
+	}
+
+	if o.MetricsSettings.BlockProfileRate == nil {
+		o.MetricsSettings.BlockProfileRate = new(int)
+		*o.MetricsSettings.BlockProfileRate = 0
+	}
+
+	if o.ServiceSettings.TimeBetweenUserTypingUpdatesMilliseconds == nil {
+		o.ServiceSettings.TimeBetweenUserTypingUpdatesMilliseconds = new(int64)
+		*o.ServiceSettings.TimeBetweenUserTypingUpdatesMilliseconds = 5000
+	}
+
+	if o.ServiceSettings.EnableUserTypingMessages == nil {
+		o.ServiceSettings.EnableUserTypingMessages = new(bool)
+		*o.ServiceSettings.EnableUserTypingMessages = true
+	}
+
+	if o.ServiceSettings.ClusterLogTimeoutMilliseconds == nil {
+		o.ServiceSettings.ClusterLogTimeoutMilliseconds = new(int)
+		*o.ServiceSettings.ClusterLogTimeoutMilliseconds = 2000
 	}
 
 	o.defaultWebrtcSettings()
@@ -985,6 +1174,10 @@ func (o *Config) IsValid() *AppError {
 
 	if *o.TeamSettings.MaxChannelsPerTeam <= 0 {
 		return NewLocAppError("Config.IsValid", "model.config.is_valid.max_channels.app_error", nil, "")
+	}
+
+	if *o.TeamSettings.MaxNotificationsPerChannel <= 0 {
+		return NewLocAppError("Config.IsValid", "model.config.is_valid.max_notify_per_channel.app_error", nil, "")
 	}
 
 	if !(*o.TeamSettings.RestrictDirectMessage == DIRECT_MESSAGE_ANY || *o.TeamSettings.RestrictDirectMessage == DIRECT_MESSAGE_TEAM) {
@@ -1179,6 +1372,10 @@ func (o *Config) IsValid() *AppError {
 		return NewLocAppError("Config.IsValid", "model.config.is_valid.write_timeout.app_error", nil, "")
 	}
 
+	if *o.ServiceSettings.TimeBetweenUserTypingUpdatesMilliseconds < 1000 {
+		return NewLocAppError("Config.IsValid", "model.config.is_valid.time_between_user_typing.app_error", nil, "")
+	}
+
 	return nil
 }
 
@@ -1241,12 +1438,12 @@ func (o *Config) defaultWebrtcSettings() {
 
 	if o.WebrtcSettings.StunURI == nil {
 		o.WebrtcSettings.StunURI = new(string)
-		*o.WebrtcSettings.StunURI = ""
+		*o.WebrtcSettings.StunURI = WEBRTC_SETTINGS_DEFAULT_STUN_URI
 	}
 
 	if o.WebrtcSettings.TurnURI == nil {
 		o.WebrtcSettings.TurnURI = new(string)
-		*o.WebrtcSettings.TurnURI = ""
+		*o.WebrtcSettings.TurnURI = WEBRTC_SETTINGS_DEFAULT_TURN_URI
 	}
 
 	if o.WebrtcSettings.TurnUsername == nil {

@@ -15,10 +15,13 @@ import (
 	"github.com/Sirupsen/logrus"
 )
 
-var flagRestrict, flagDefaultTeam, flagDefaultServer, flagTLSBind, flagTLSDir *string
-var flagInsecure *bool
-var version = "0.11.2-dev"
-var logger *logrus.Entry
+var (
+	flagRestrict, flagDefaultTeam, flagDefaultServer, flagTLSBind, flagTLSDir *string
+	flagInsecure                                                              *bool
+	version                                                                   = "0.11.4"
+	githash                                                                   string
+	logger                                                                    *logrus.Entry
+)
 
 func main() {
 	flagDebug := flag.Bool("debug", false, "enable debug logging")
@@ -43,12 +46,10 @@ func main() {
 		ourlog.Level = logrus.DebugLevel
 		irckit.SetLogLevel("debug")
 	}
-
 	if *flagVersion {
-		fmt.Println("Version:", version)
+		fmt.Printf("version: %s %s\n", version, githash)
 		return
 	}
-
 	irckit.SetLogger(logger)
 	if *flagTLSBind != "" {
 		go func() {
@@ -64,6 +65,10 @@ func main() {
 	socket, err := net.Listen("tcp", *flagBind)
 	if err != nil {
 		logger.Errorf("Can not listen on %s: %v", *flagBind, err)
+	}
+	logger.Infof("Running version %s %s", version, githash)
+	if strings.Contains(version, "-dev") {
+		logger.Infof("WARNING: THIS IS A DEVELOPMENT VERSION. Things may break.")
 	}
 	logger.Infof("Listening on %s", *flagBind)
 	defer socket.Close()

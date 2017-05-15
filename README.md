@@ -1,4 +1,5 @@
 # matterircd
+[![Join the IRC chat at https://webchat.freenode.net/?channels=matterircd](https://img.shields.io/badge/IRC-matterircd-green.svg)](https://webchat.freenode.net/?channels=matterircd)
 
 Minimal IRC server which integrates with [mattermost](https://www.mattermost.org)  
 Tested on Windows / Linux
@@ -15,11 +16,8 @@ docker run -p 6667:6667 42wim/matterircd:latest -bind 0.0.0.0:6667
 Now you can connect with your IRC client to port 6667 on your docker host.
 
 # Compatibility
-* Matterircd v0.11.1 works with mattermost 3.5.x [3.5.1 release](https://github.com/mattermost/platform/releases/tag/v3.5.1)
+* Matterircd v0.11.4 works with mattermost 3.5.x - 3.9.0 [3.9.0 release](https://github.com/mattermost/platform/releases/tag/v3.9.0)
 * Matterircd v0.10.2 works with mattermost 3.3.0 - 3.4.0 [3.4.0 release](https://github.com/mattermost/platform/releases/tag/v3.4.0)
-* Matterircd v0.9.1 works with mattermost 3.0.0 - 3.2.0 [3.2.0 release](https://github.com/mattermost/platform/releases/tag/v3.2.0)
-* Matterircd v0.5 works with mattermost 1.4.0 until [2.2.0 release](https://github.com/mattermost/platform/releases/tag/v2.2.0)
-* Matterircd v0.2 works only on mattermost < 1.4.0
 
 Master branch of matterircd should always work against latest STABLE mattermost release.  
 If you want to run matterircd with mattermost DEV builds, use the develop branch of matterircd.
@@ -45,11 +43,8 @@ If you want to run matterircd with mattermost DEV builds, use the develop branch
 # Binaries
 
 You can find the binaries [here](https://github.com/42wim/matterircd/releases/)
-* For use with mattermost 3.5.0 and higher [v0.11.1](https://github.com/42wim/matterircd/releases/tag/v0.11.1)
+* For use with mattermost 3.5.0 and higher [v0.11.4](https://github.com/42wim/matterircd/releases/tag/v0.11.4)
 * For use with mattermost 3.3.0-3.4.0 [v0.10.2](https://github.com/42wim/matterircd/releases/tag/v0.10.2)
-* For use with mattermost 3.0.0-3.2.0 [v0.9.1](https://github.com/42wim/matterircd/releases/tag/v0.9.1)
-* For use with mattermost 1.4.0-2.2.0 [v0.5](https://github.com/42wim/matterircd/releases/tag/v0.5)
-* For use with mattermost <1.4.0 [v0.2](https://github.com/42wim/matterircd/releases/tag/v0.2)
 
 # Building
 

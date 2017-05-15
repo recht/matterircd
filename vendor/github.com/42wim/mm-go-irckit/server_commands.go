@@ -292,8 +292,9 @@ func CmdPrivMsg(s Server, u *User, msg *irc.Message) error {
 			msg.Trailing = strings.Replace(msg.Trailing, "\x01ACTION ", "", -1)
 			msg.Trailing = "*" + msg.Trailing + "*"
 		}
-		msg.Trailing += " ​"
-		post := &model.Post{ChannelId: ch.ID(), Message: msg.Trailing}
+		props := make(map[string]interface{})
+		props["matterircd"] = true
+		post := &model.Post{ChannelId: ch.ID(), Message: msg.Trailing, Props: props}
 		_, err := u.mc.Client.CreatePost(post)
 		if err != nil {
 			u.MsgSpoofUser("mattermost", "msg: "+msg.Trailing+" could not be send: "+err.Error())
@@ -371,11 +372,17 @@ func CmdWho(s Server, u *User, msg *irc.Message) error {
 	}
 
 	r := make([]*irc.Message, 0, ch.Len()+1)
+	statuses := u.mc.GetStatuses()
+
 	for _, other := range ch.Users() {
+		status := "H"
+		if statuses[other.User] != "online" {
+			status = "G"
+		}
 		// <me> <channel> <user> <host> <server> <nick> [H/G]: 0 <real>
 		r = append(r, &irc.Message{
 			Prefix:   s.Prefix(),
-			Params:   []string{u.Nick, mask, other.User, other.Host, "*", other.Nick, "H"},
+			Params:   []string{u.Nick, mask, other.User, other.Host, "*", other.Nick, status},
 			Command:  irc.RPL_WHOREPLY,
 			Trailing: "0 " + other.Real,
 		})

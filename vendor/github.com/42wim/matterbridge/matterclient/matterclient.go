@@ -4,9 +4,11 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -34,6 +36,7 @@ type Message struct {
 	Channel  string
 	Username string
 	Text     string
+	Type     string
 }
 
 type Team struct {
@@ -47,19 +50,20 @@ type Team struct {
 type MMClient struct {
 	sync.RWMutex
 	*Credentials
-	Team        *Team
-	OtherTeams  []*Team
-	Client      *model.Client
-	User        *model.User
-	Users       map[string]*model.User
-	MessageChan chan *Message
-	log         *log.Entry
-	WsClient    *websocket.Conn
-	WsQuit      bool
-	WsAway      bool
-	WsConnected bool
-	WsSequence  int64
-	WsPingChan  chan *model.WebSocketResponse
+	Team          *Team
+	OtherTeams    []*Team
+	Client        *model.Client
+	User          *model.User
+	Users         map[string]*model.User
+	MessageChan   chan *Message
+	log           *log.Entry
+	WsClient      *websocket.Conn
+	WsQuit        bool
+	WsAway        bool
+	WsConnected   bool
+	WsSequence    int64
+	WsPingChan    chan *model.WebSocketResponse
+	ServerVersion string
 }
 
 func New(login, pass, team, server string) *MMClient {
@@ -100,7 +104,27 @@ func (m *MMClient) Login() error {
 	}
 	// login to mattermost
 	m.Client = model.NewClient(uriScheme + m.Credentials.Server)
-	m.Client.HttpClient.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: m.SkipTLSVerify}}
+	m.Client.HttpClient.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: m.SkipTLSVerify}, Proxy: http.ProxyFromEnvironment}
+	m.Client.HttpClient.Timeout = time.Second * 10
+
+	for {
+		d := b.Duration()
+		// bogus call to get the serverversion
+		m.Client.GetClientProperties()
+		if firstConnection && !supportedVersion(m.Client.ServerVersion) {
+			return fmt.Errorf("unsupported mattermost version: %s", m.Client.ServerVersion)
+		}
+		m.ServerVersion = m.Client.ServerVersion
+		if m.ServerVersion == "" {
+			m.log.Debugf("Server not up yet, reconnecting in %s", d)
+			time.Sleep(d)
+		} else {
+			m.log.Infof("Found version %s", m.ServerVersion)
+			break
+		}
+	}
+	b.Reset()
+
 	var myinfo *model.Result
 	var appErr *model.AppError
 	var logmsg = "trying login"
@@ -174,11 +198,11 @@ func (m *MMClient) wsConnect() {
 	}
 
 	// setup websocket connection
-	wsurl := wsScheme + m.Credentials.Server + model.API_URL_SUFFIX + "/users/websocket"
+	wsurl := wsScheme + m.Credentials.Server + model.API_URL_SUFFIX_V3 + "/users/websocket"
 	header := http.Header{}
 	header.Set(model.HEADER_AUTH, "BEARER "+m.Client.AuthToken)
 
-	m.log.Debug("WsClient: making connection")
+	m.log.Debugf("WsClient: making connection: %s", wsurl)
 	for {
 		wsDialer := &websocket.Dialer{Proxy: http.ProxyFromEnvironment, TLSClientConfig: &tls.Config{InsecureSkipVerify: m.SkipTLSVerify}}
 		var err error
@@ -192,6 +216,7 @@ func (m *MMClient) wsConnect() {
 		break
 	}
 
+	m.log.Debug("WsClient: connected")
 	m.WsSequence = 1
 	m.WsPingChan = make(chan *model.WebSocketResponse)
 	// only start to parse WS messages when login is completely done
@@ -255,7 +280,7 @@ func (m *MMClient) WsReceiver() {
 
 func (m *MMClient) parseMessage(rmsg *Message) {
 	switch rmsg.Raw.Event {
-	case model.WEBSOCKET_EVENT_POSTED:
+	case model.WEBSOCKET_EVENT_POSTED, model.WEBSOCKET_EVENT_POST_EDITED:
 		m.parseActionPost(rmsg)
 		/*
 			case model.ACTION_USER_REMOVED:
@@ -284,7 +309,18 @@ func (m *MMClient) parseActionPost(rmsg *Message) {
 	}
 	rmsg.Username = m.GetUser(data.UserId).Username
 	rmsg.Channel = m.GetChannelName(data.ChannelId)
-	rmsg.Team = m.GetTeamName(rmsg.Raw.Data["team_id"].(string))
+	rmsg.Type = data.Type
+	teamid, _ := rmsg.Raw.Data["team_id"].(string)
+	// edit messsages have no team_id for some reason
+	if teamid == "" {
+		// we can find the team_id from the channelid
+		result, _ := m.Client.GetChannel(data.ChannelId, "")
+		teamid = result.Data.(*model.ChannelData).Channel.TeamId
+		rmsg.Raw.Data["team_id"] = teamid
+	}
+	if teamid != "" {
+		rmsg.Team = m.GetTeamName(teamid)
+	}
 	// direct message
 	if rmsg.Raw.Data["channel_type"] == "D" {
 		rmsg.Channel = m.GetUser(data.UserId).Username
@@ -310,7 +346,12 @@ func (m *MMClient) UpdateChannels() error {
 	if err != nil {
 		return errors.New(err.DetailedError)
 	}
-	mmchannels2, err := m.Client.GetMoreChannels("")
+	var mmchannels2 *model.Result
+	if m.mmVersion() >= 3.8 {
+		mmchannels2, err = m.Client.GetMoreChannelsPage(0, 5000)
+	} else {
+		mmchannels2, err = m.Client.GetMoreChannels("")
+	}
 	if err != nil {
 		return errors.New(err.DetailedError)
 	}
@@ -445,6 +486,14 @@ func (m *MMClient) UpdateChannelHeader(channelId string, header string) {
 
 func (m *MMClient) UpdateLastViewed(channelId string) {
 	m.log.Debugf("posting lastview %#v", channelId)
+	if m.mmVersion() >= 3.8 {
+		view := model.ChannelView{ChannelId: channelId}
+		res, _ := m.Client.ViewChannel(view)
+		if res == false {
+			m.log.Errorf("ChannelView update for %s failed", channelId)
+		}
+		return
+	}
 	_, err := m.Client.UpdateLastViewedAt(channelId, true)
 	if err != nil {
 		m.log.Error(err)
@@ -487,11 +536,16 @@ func (m *MMClient) SendDirectMessage(toUserId string, msg string) {
 	_, err := m.Client.CreateDirectChannel(toUserId)
 	if err != nil {
 		m.log.Debugf("SendDirectMessage to %#v failed: %s", toUserId, err)
+		return
 	}
 	channelName := model.GetDMNameFromIds(toUserId, m.User.Id)
 
 	// update our channels
-	mmchannels, _ := m.Client.GetChannels("")
+	mmchannels, err := m.Client.GetChannels("")
+	if err != nil {
+		m.log.Debug("SendDirectMessage: Couldn't update channels")
+		return
+	}
 	m.Lock()
 	m.Team.Channels = mmchannels.Data.(*model.ChannelList)
 	m.Unlock()
@@ -608,6 +662,27 @@ func (m *MMClient) GetStatus(userId string) string {
 	return "offline"
 }
 
+func (m *MMClient) GetStatuses() map[string]string {
+	var ok bool
+	statuses := make(map[string]string)
+	res, err := m.Client.GetStatuses()
+	if err != nil {
+		return statuses
+	}
+	if statuses, ok = res.Data.(map[string]string); ok {
+		for userId, status := range statuses {
+			statuses[userId] = "offline"
+			if status == model.STATUS_AWAY {
+				statuses[userId] = "away"
+			}
+			if status == model.STATUS_ONLINE {
+				statuses[userId] = "online"
+			}
+		}
+	}
+	return statuses
+}
+
 func (m *MMClient) GetTeamId() string {
 	return m.Team.Id
 }
@@ -633,6 +708,7 @@ func (m *MMClient) StatusLoop(onConnect func()) {
 					m.WsQuit = false
 					m.Login()
 					onConnect()
+					go m.WsReceiver()
 				} else {
 					retries++
 					backoff = time.Second * 5
@@ -668,7 +744,11 @@ func (m *MMClient) initUser() error {
 			return errors.New(err.DetailedError)
 		}
 		t.Channels = mmchannels.Data.(*model.ChannelList)
-		mmchannels, err = m.Client.GetMoreChannels("")
+		if m.mmVersion() >= 3.8 {
+			mmchannels, err = m.Client.GetMoreChannelsPage(0, 5000)
+		} else {
+			mmchannels, err = m.Client.GetMoreChannels("")
+		}
 		if err != nil {
 			return errors.New(err.DetailedError)
 		}
@@ -695,4 +775,20 @@ func (m *MMClient) sendWSRequest(action string, data map[string]interface{}) err
 	m.log.Debugf("sendWsRequest %#v", req)
 	m.WsClient.WriteJSON(req)
 	return nil
+}
+
+func (m *MMClient) mmVersion() float64 {
+	v, _ := strconv.ParseFloat(m.ServerVersion[0:3], 64)
+	return v
+}
+
+func supportedVersion(version string) bool {
+	if strings.HasPrefix(version, "3.5.0") ||
+		strings.HasPrefix(version, "3.6.0") ||
+		strings.HasPrefix(version, "3.7.0") ||
+		strings.HasPrefix(version, "3.8.0") ||
+		strings.HasPrefix(version, "3.9.0") {
+		return true
+	}
+	return false
 }
