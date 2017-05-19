@@ -366,9 +366,21 @@ func (m *MMClient) GetChannelName(channelId string) string {
 	m.RLock()
 	defer m.RUnlock()
 	for _, t := range m.OtherTeams {
-		for _, channel := range append(*t.Channels, *t.MoreChannels...) {
-			if channel.Id == channelId {
-				return channel.Name
+		if t == nil {
+			continue
+		}
+		if t.Channels != nil {
+			for _, channel := range *t.Channels {
+				if channel.Id == channelId {
+					return channel.Name
+				}
+			}
+		}
+		if t.MoreChannels != nil {
+			for _, channel := range *t.MoreChannels {
+				if channel.Id == channelId {
+					return channel.Name
+				}
 			}
 		}
 	}
@@ -633,8 +645,8 @@ func (m *MMClient) GetUsers() map[string]*model.User {
 }
 
 func (m *MMClient) GetUser(userId string) *model.User {
-	m.RLock()
-	defer m.RUnlock()
+	m.Lock()
+	defer m.Unlock()
 	u, ok := m.Users[userId]
 	if !ok {
 		res, err := m.Client.GetProfilesByIds([]string{userId})
