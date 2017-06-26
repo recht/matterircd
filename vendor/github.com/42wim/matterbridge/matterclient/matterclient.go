@@ -307,15 +307,14 @@ func (m *MMClient) parseActionPost(rmsg *Message) {
 		m.log.Infof("User %s is not known, ignoring message %s", data)
 		return
 	}
-	rmsg.Username = m.GetUser(data.UserId).Username
+	rmsg.Username = m.GetUserName(data.UserId)
 	rmsg.Channel = m.GetChannelName(data.ChannelId)
 	rmsg.Type = data.Type
 	teamid, _ := rmsg.Raw.Data["team_id"].(string)
 	// edit messsages have no team_id for some reason
 	if teamid == "" {
 		// we can find the team_id from the channelid
-		result, _ := m.Client.GetChannel(data.ChannelId, "")
-		teamid = result.Data.(*model.ChannelData).Channel.TeamId
+		teamid = m.GetChannelTeamId(data.ChannelId)
 		rmsg.Raw.Data["team_id"] = teamid
 	}
 	if teamid != "" {
@@ -347,7 +346,7 @@ func (m *MMClient) UpdateChannels() error {
 		return errors.New(err.DetailedError)
 	}
 	var mmchannels2 *model.Result
-	if m.mmVersion() >= 3.8 {
+	if m.mmVersion() >= 3.08 {
 		mmchannels2, err = m.Client.GetMoreChannelsPage(0, 5000)
 	} else {
 		mmchannels2, err = m.Client.GetMoreChannels("")
@@ -399,6 +398,19 @@ func (m *MMClient) GetChannelId(name string, teamId string) string {
 				if channel.Name == name {
 					return channel.Id
 				}
+			}
+		}
+	}
+	return ""
+}
+
+func (m *MMClient) GetChannelTeamId(id string) string {
+	m.RLock()
+	defer m.RUnlock()
+	for _, t := range append(m.OtherTeams, m.Team) {
+		for _, channel := range append(*t.Channels, *t.MoreChannels...) {
+			if channel.Id == id {
+				return channel.TeamId
 			}
 		}
 	}
@@ -498,7 +510,7 @@ func (m *MMClient) UpdateChannelHeader(channelId string, header string) {
 
 func (m *MMClient) UpdateLastViewed(channelId string) {
 	m.log.Debugf("posting lastview %#v", channelId)
-	if m.mmVersion() >= 3.8 {
+	if m.mmVersion() >= 3.08 {
 		view := model.ChannelView{ChannelId: channelId}
 		res, _ := m.Client.ViewChannel(view)
 		if res == false {
@@ -661,6 +673,14 @@ func (m *MMClient) GetUser(userId string) *model.User {
 	return m.Users[userId]
 }
 
+func (m *MMClient) GetUserName(userId string) string {
+	user := m.GetUser(userId)
+	if user != nil {
+		return user.Username
+	}
+	return ""
+}
+
 func (m *MMClient) GetStatus(userId string) string {
 	res, err := m.Client.GetStatusesByIds([]string{userId})
 	if err != nil {
@@ -758,7 +778,7 @@ func (m *MMClient) initUser() error {
 			return errors.New(err.DetailedError)
 		}
 		t.Channels = mmchannels.Data.(*model.ChannelList)
-		if m.mmVersion() >= 3.8 {
+		if m.mmVersion() >= 3.08 {
 			mmchannels, err = m.Client.GetMoreChannelsPage(0, 5000)
 		} else {
 			mmchannels, err = m.Client.GetMoreChannels("")
@@ -792,7 +812,10 @@ func (m *MMClient) sendWSRequest(action string, data map[string]interface{}) err
 }
 
 func (m *MMClient) mmVersion() float64 {
-	v, _ := strconv.ParseFloat(m.ServerVersion[0:3], 64)
+	v, _ := strconv.ParseFloat(string(m.ServerVersion[0:2])+"0"+string(m.ServerVersion[2]), 64)
+	if string(m.ServerVersion[4]) == "." {
+		v, _ = strconv.ParseFloat(m.ServerVersion[0:4], 64)
+	}
 	return v
 }
 
@@ -801,7 +824,8 @@ func supportedVersion(version string) bool {
 		strings.HasPrefix(version, "3.6.0") ||
 		strings.HasPrefix(version, "3.7.0") ||
 		strings.HasPrefix(version, "3.8.0") ||
-		strings.HasPrefix(version, "3.9.0") {
+		strings.HasPrefix(version, "3.9.0") ||
+		strings.HasPrefix(version, "3.10.0") {
 		return true
 	}
 	return false
