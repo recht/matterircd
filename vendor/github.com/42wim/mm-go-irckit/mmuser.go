@@ -47,6 +47,7 @@ func NewUserMM(c net.Conn, srv Server, cfg *MmCfg) *User {
 	u.MmInfo.Cfg = cfg
 	// used for login
 	u.createService("mattermost", "loginservice")
+	u.createService("slack", "loginservice")
 	return u
 }
 
@@ -109,7 +110,7 @@ func (u *User) addUserToChannel(user *model.User, channel string, channelId stri
 		logger.Warnf("Cannot join %v into %s", user, channel)
 		return
 	}
-	// logger.Debugf("adding %s to %s", ghost.Nick, channel)
+	logger.Debugf("adding %s to %s", ghost.Nick, channel)
 	ch := u.Srv.Channel(channelId)
 	ch.Join(ghost)
 }
@@ -220,6 +221,10 @@ func (u *User) handleWsActionPost(rmsg *model.WebSocketEvent) {
 	props := rmsg.Data
 	extraProps := model.StringInterfaceFromJson(strings.NewReader(rmsg.Data["post"].(string)))["props"].(map[string]interface{})
 	logger.Debugf("handleWsActionPost() receiving userid %s", data.UserId)
+	if rmsg.Event == model.WEBSOCKET_EVENT_POST_EDITED && data.HasReactions == true {
+		logger.Debugf("edit post with reactions, do not relay. We don't know if a reaction is added or the post has been edited")
+		return
+	}
 	if data.UserId == u.mc.User.Id {
 		if _, ok := extraProps["matterircd"].(bool); ok {
 			logger.Debugf("message is sent from matterirc, not relaying %#v", data.Message)
@@ -251,6 +256,16 @@ func (u *User) handleWsActionPost(rmsg *model.WebSocketEvent) {
 	if ghost != nil {
 		spoofUsername = ghost.Nick
 	}
+
+	// if we got attachments (eg slack attachments) and we have a fallback message, show this.
+	if entries, ok := extraProps["attachments"].([]interface{}); ok {
+		for _, entry := range entries {
+			if f, ok := entry.(map[string]interface{}); ok {
+				data.Message = data.Message + "\n" + f["fallback"].(string)
+			}
+		}
+	}
+
 	// check if we have a override_username (from webhooks) and use it
 	overrideUsername, _ := extraProps["override_username"].(string)
 	if overrideUsername != "" {
@@ -270,6 +285,11 @@ func (u *User) handleWsActionPost(rmsg *model.WebSocketEvent) {
 		}
 	}
 
+	if data.Type == model.POST_JOIN_LEAVE || data.Type == "system_leave_channel" || data.Type == "system_join_channel" {
+		logger.Debugf("join/leave message. not relaying %#v", data.Message)
+		return
+	}
+
 	// not a private message so do channel stuff
 	if props["channel_type"] != "D" && ghost != nil {
 		ch = u.Srv.Channel(data.ChannelId)
@@ -283,6 +303,10 @@ func (u *User) handleWsActionPost(rmsg *model.WebSocketEvent) {
 		return
 	}
 
+	// add an edited string when messages are edited
+	if len(msgs) > 0 && rmsg.Event == model.WEBSOCKET_EVENT_POST_EDITED {
+		msgs[len(msgs)-1] = msgs[len(msgs)-1] + " (edited)"
+	}
 	// check if we have a override_username (from webhooks) and use it
 	for _, m := range msgs {
 		if m == "" {
@@ -421,12 +445,22 @@ func (u *User) MsgUser(toUser *User, msg string) {
 }
 
 func (u *User) MsgSpoofUser(rcvuser string, msg string) {
+	for len(msg) > 400 {
+		u.Encode(&irc.Message{
+			Prefix:   &irc.Prefix{Name: rcvuser, User: rcvuser, Host: rcvuser},
+			Command:  irc.PRIVMSG,
+			Params:   []string{u.Nick},
+			Trailing: msg[:400] + "\n",
+		})
+		msg = msg[400:]
+	}
 	u.Encode(&irc.Message{
 		Prefix:   &irc.Prefix{Name: rcvuser, User: rcvuser, Host: rcvuser},
 		Command:  irc.PRIVMSG,
 		Params:   []string{u.Nick},
 		Trailing: msg,
 	})
+
 }
 
 // sync IRC with mattermost channel state

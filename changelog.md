@@ -1,3 +1,36 @@
+# v0.13.0
+## New features
+* Support mattermost 4.0
+
+## Enhancement
+* Show slack attachments if they have a fallback/contain text
+* Show links even when public links are disabled #105
+* Edited messages now have "(edited)" appended
+* ```-bind ""``` now disables non-tls port-binding when you have ```-tlsbind``` specified #109
+
+## Bugfix
+* Long messages from mattermost will be split in multiple smaller messages #103
+* Fix join/leave messages for recent mattermost versions #113, #104
+* Ignore messages sent to &users #108 
+* Ignore posts that have a reaction (emoji) added #111
+
+
+# v0.12.0
+(thanks to @recht matterircd fork)
+## New features
+* Add KICK support
+* Add INVITE support
+* Also relay edited messages
+
+## Enhancement
+* Show the original message/author after replied messages
+* Print timestamp of replayed messages
+* Faster startup (joining channels)
+
+## Bugfix
+* Do not clear topic on empty /TOPIC command
+* Fix various possible panics
+
 # v0.11.6
 ## New features
 * Support mattermost 3.10.0

@@ -12,27 +12,57 @@ import (
 )
 
 type CommandHandler interface {
-	handle(u *User, c *Command, args []string)
+	handle(u *User, c *Command, args []string, service string)
 }
 
 type Command struct {
-	handler   func(u *User, toUser *User, args []string)
+	handler   func(u *User, toUser *User, args []string, service string)
 	minParams int
 	maxParams int
 	login     bool
 }
 
-func logout(u *User, toUser *User, args []string) {
-	u.logoutFromMattermost()
+func logout(u *User, toUser *User, args []string, service string) {
+	switch service {
+	case "mattermost":
+		u.logoutFromMattermost()
+	case "slack":
+		u.logoutFromSlack()
+	}
 }
 
-func login(u *User, toUser *User, args []string) {
-	if u.mc != nil {
-		err := u.logoutFromMattermost()
+func login(u *User, toUser *User, args []string, service string) {
+	if service == "slack" {
+		var err error
+		if len(args) != 1 {
+			u.MsgUser(toUser, "need LOGIN <token>")
+			return
+		}
+		u.Token = args[len(args)-1]
+		if u.sc != nil {
+			fmt.Println("login, starting logout")
+			err := u.logoutFromSlack()
+			if err != nil {
+				u.MsgUser(toUser, err.Error())
+				return
+			}
+		}
+		if u.mc != nil {
+			err := u.logoutFromMattermost()
+			if err != nil {
+				u.MsgUser(toUser, err.Error())
+				return
+			}
+		}
+		u.sc, err = u.loginToSlack()
 		if err != nil {
 			u.MsgUser(toUser, err.Error())
+			return
 		}
+		u.MsgUser(toUser, "login OK")
+		return
 	}
+
 	cred := &MmCredentials{}
 	datalen := 4
 	if u.Cfg.DefaultTeam != "" {
@@ -85,6 +115,21 @@ func login(u *User, toUser *User, args []string) {
 		return
 	}
 
+	if u.sc != nil {
+		fmt.Println("login, starting logout")
+		err := u.logoutFromSlack()
+		if err != nil {
+			u.MsgUser(toUser, err.Error())
+			return
+		}
+	}
+	if u.mc != nil {
+		err := u.logoutFromMattermost()
+		if err != nil {
+			u.MsgUser(toUser, err.Error())
+			return
+		}
+	}
 	u.Credentials = cred
 	var err error
 	u.mc, err = u.loginToMattermost()
@@ -92,12 +137,16 @@ func login(u *User, toUser *User, args []string) {
 		u.MsgUser(toUser, err.Error())
 		return
 	}
-	go u.mc.StatusLoop(u.addUsersToChannels)
+	u.mc.OnWsConnect = u.addUsersToChannels
+	go u.mc.StatusLoop()
 	u.MsgUser(toUser, "login OK")
 
 }
 
-func search(u *User, toUser *User, args []string) {
+func search(u *User, toUser *User, args []string, service string) {
+	if service == "slack" {
+		u.MsgUser(toUser, "not implemented")
+	}
 	postlist := u.mc.SearchPosts(strings.Join(args, " "))
 	if postlist == nil || len(postlist.Order) == 0 {
 		u.MsgUser(toUser, "no results")
@@ -114,7 +163,7 @@ func search(u *User, toUser *User, args []string) {
 			}
 		}
 		if len(postlist.Posts[postlist.Order[i]].FileIds) > 0 {
-			for _, fname := range u.mc.GetPublicLinks(postlist.Posts[postlist.Order[i]].FileIds) {
+			for _, fname := range u.mc.GetFileLinks(postlist.Posts[postlist.Order[i]].FileIds) {
 				u.MsgUser(toUser, "download file - "+fname)
 			}
 		}
@@ -123,7 +172,10 @@ func search(u *User, toUser *User, args []string) {
 	}
 }
 
-func searchUsers(u *User, toUser *User, args []string) {
+func searchUsers(u *User, toUser *User, args []string, service string) {
+	if service == "slack" {
+		u.MsgUser(toUser, "not implemented")
+	}
 	res, err := u.mc.Client.SearchUsers(model.UserSearch{Term: strings.Join(args, " ")})
 	if err != nil {
 		u.MsgUser(toUser, fmt.Sprint("Error", err))
@@ -135,7 +187,10 @@ func searchUsers(u *User, toUser *User, args []string) {
 	}
 }
 
-func scrollback(u *User, toUser *User, args []string) {
+func scrollback(u *User, toUser *User, args []string, service string) {
+	if service == "slack" {
+		u.MsgUser(toUser, "not implemented")
+	}
 	if len(args) != 2 {
 		u.MsgUser(toUser, "need SCROLLBACK <channel> <lines>")
 		u.MsgUser(toUser, "e.g. SCROLLBACK #bugs 10 (show last 10 lines from #bugs)")
@@ -166,7 +221,7 @@ func scrollback(u *User, toUser *User, args []string) {
 			}
 		}
 		if len(postlist.Posts[postlist.Order[i]].FileIds) > 0 {
-			for _, fname := range u.mc.GetPublicLinks(postlist.Posts[postlist.Order[i]].FileIds) {
+			for _, fname := range u.mc.GetFileLinks(postlist.Posts[postlist.Order[i]].FileIds) {
 				u.MsgUser(toUser, "<"+nick+"> download file - "+fname)
 			}
 		}
@@ -174,7 +229,10 @@ func scrollback(u *User, toUser *User, args []string) {
 
 }
 
-func api(u *User, toUser *User, args []string) {
+func api(u *User, toUser *User, args []string, service string) {
+	if service == "slack" {
+		u.MsgUser(toUser, "not implemented")
+	}
 	var r *http.Response
 	var err error = nil
 	if strings.ToLower(args[0]) == "get" {
@@ -194,7 +252,7 @@ func api(u *User, toUser *User, args []string) {
 }
 
 var cmds = map[string]Command{
-	"logout":      {handler: logout, minParams: 0, maxParams: 0},
+	"logout":      {handler: logout, login: true, minParams: 0, maxParams: 0},
 	"login":       {handler: login, minParams: 2, maxParams: 4},
 	"search":      {handler: search, login: true, minParams: 1, maxParams: -1},
 	"searchusers": {handler: searchUsers, login: true, minParams: 1, maxParams: -1},
@@ -202,7 +260,9 @@ var cmds = map[string]Command{
 	"api":         {handler: api, login: true, minParams: 2, maxParams: -1},
 }
 
-func (u *User) handleMMServiceBot(toUser *User, msg string) {
+func (u *User) handleServiceBot(service string, toUser *User, msg string) {
+
+	//func (u *User) handleMMServiceBot(toUser *User, msg string) {
 	commands := strings.Fields(msg)
 	cmd, ok := cmds[strings.ToLower(commands[0])]
 	if !ok {
@@ -215,18 +275,28 @@ func (u *User) handleMMServiceBot(toUser *User, msg string) {
 		return
 	}
 	if cmd.login {
-		if u.mc == nil {
-			u.MsgUser(toUser, "You're not logged in. Use LOGIN first.")
-			return
+		switch service {
+		case "mattermost":
+			if u.mc == nil {
+				u.MsgUser(toUser, "You're not logged in. Use LOGIN first.")
+				return
+			}
+		case "slack":
+			if u.sc == nil {
+				u.MsgUser(toUser, "You're not logged in. Use LOGIN first.")
+				return
+			}
 		}
 	}
-	if cmd.minParams > len(commands[1:]) {
-		u.MsgUser(toUser, fmt.Sprintf("%s requires at least %v arguments", commands[0], cmd.minParams))
-		return
-	}
+	/*
+		if cmd.minParams > len(commands[1:]) {
+			u.MsgUser(toUser, fmt.Sprintf("%s requires at least %v arguments", commands[0], cmd.minParams))
+			return
+		}
+	*/
 	if cmd.maxParams > -1 && len(commands[1:]) > cmd.maxParams {
 		u.MsgUser(toUser, fmt.Sprintf("%s takes at most %v arguments", commands[0], cmd.maxParams))
 		return
 	}
-	cmd.handler(u, toUser, commands[1:])
+	cmd.handler(u, toUser, commands[1:], service)
 }

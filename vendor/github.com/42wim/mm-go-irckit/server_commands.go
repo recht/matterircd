@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/mattermost/platform/model"
+	"github.com/nlopes/slack"
 	"github.com/sorcix/irc"
 )
 
@@ -45,6 +46,27 @@ func CmdAway(s Server, u *User, msg *irc.Message) error {
 	return s.EncodeMessage(u, irc.RPL_NOWAWAY, []string{u.Nick}, "You have been marked as being away")
 }
 
+func CmdInvite(s Server, u *User, msg *irc.Message) error {
+	who := msg.Params[0]
+	channel := msg.Params[1]
+	other, ok := s.HasUser(who)
+	if !ok {
+		return nil
+	}
+
+	channelName := strings.Replace(channel, "#", "", 1)
+	id := u.mc.GetChannelId(channelName, "")
+	if id == "" {
+		return nil
+	}
+	_, err := u.mc.Client.AddChannelMember(id, other.User)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // CmdIson is a handler for the /ISON command.
 func CmdIson(s Server, u *User, msg *irc.Message) error {
 	nicks := msg.Params
@@ -66,6 +88,26 @@ func CmdIson(s Server, u *User, msg *irc.Message) error {
 			Trailing: strings.Join(on, " "),
 		},
 	)
+}
+
+func CmdKick(s Server, u *User, msg *irc.Message) error {
+	channel := msg.Params[0]
+	who := msg.Params[1]
+
+	other, ok := s.HasUser(who)
+	if !ok {
+		return nil
+	}
+	channelName := strings.Replace(channel, "#", "", 1)
+	id := u.mc.GetChannelId(channelName, "")
+	if id == "" {
+		return nil
+	}
+	_, err := u.mc.Client.RemoveChannelMember(id, other.User)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // CmdJoin is a handler for the /JOIN command.
@@ -277,6 +319,9 @@ func CmdPrivMsg(s Server, u *User, msg *irc.Message) error {
 	if msg.Trailing == "" {
 		return nil
 	}
+	if msg.Params[0] == "&users" {
+		return nil
+	}
 	query := msg.Params[0]
 	if ch, exists := s.HasChannel(query); exists {
 		//p := strings.Replace(query, "#", "", -1)
@@ -292,20 +337,52 @@ func CmdPrivMsg(s Server, u *User, msg *irc.Message) error {
 			msg.Trailing = strings.Replace(msg.Trailing, "\x01ACTION ", "", -1)
 			msg.Trailing = "*" + msg.Trailing + "*"
 		}
-		props := make(map[string]interface{})
-		props["matterircd"] = true
-		post := &model.Post{ChannelId: ch.ID(), Message: msg.Trailing, Props: props}
-		_, err := u.mc.Client.CreatePost(post)
-		if err != nil {
-			u.MsgSpoofUser("mattermost", "msg: "+msg.Trailing+" could not be send: "+err.Error())
+		if ch.Service() == "slack" {
+			np := slack.NewPostMessageParameters()
+			np.AsUser = true
+			np.Username = u.User
+			np.Attachments = append(np.Attachments, slack.Attachment{CallbackID: "matterircd"})
+			_, _, err := u.sc.PostMessage(strings.ToUpper(ch.ID()), msg.Trailing, np)
+			if err != nil {
+				return err
+			}
+		}
+		if ch.Service() == "mattermost" {
+			props := make(map[string]interface{})
+			props["matterircd"] = true
+			post := &model.Post{ChannelId: ch.ID(), Message: msg.Trailing, Props: props}
+			_, err := u.mc.Client.CreatePost(post)
+			if err != nil {
+				u.MsgSpoofUser("mattermost", "msg: "+msg.Trailing+" could not be send: "+err.Error())
+			}
 		}
 	} else if toUser, exists := s.HasUser(query); exists {
 		if query == "mattermost" {
-			go u.handleMMServiceBot(toUser, msg.Trailing)
+			go u.handleServiceBot(query, toUser, msg.Trailing)
+			return nil
+		}
+		if query == "slack" {
+			go u.handleServiceBot(query, toUser, msg.Trailing)
 			return nil
 		}
 		if toUser.MmGhostUser {
-			u.mc.SendDirectMessage(toUser.User, msg.Trailing)
+			if u.sc != nil {
+				_, _, dchannel, err := u.sc.OpenIMChannel(toUser.User)
+				if err != nil {
+					return err
+				}
+				np := slack.NewPostMessageParameters()
+				np.AsUser = true
+				np.Username = u.User
+				np.Attachments = append(np.Attachments, slack.Attachment{CallbackID: "matterircd"})
+				_, _, err = u.sc.PostMessage(dchannel, msg.Trailing, np)
+				if err != nil {
+					return err
+				}
+			}
+			if u.mc != nil {
+				u.mc.SendDirectMessage(toUser.User, msg.Trailing)
+			}
 			return nil
 		}
 		err = s.EncodeMessage(u, irc.PRIVMSG, []string{toUser.Nick}, msg.Trailing)
@@ -372,7 +449,10 @@ func CmdWho(s Server, u *User, msg *irc.Message) error {
 	}
 
 	r := make([]*irc.Message, 0, ch.Len()+1)
-	statuses := u.mc.GetStatuses()
+	statuses := make(map[string]string)
+	if u.sc == nil {
+		statuses = u.mc.GetStatuses()
+	}
 
 	for _, other := range ch.Users() {
 		status := "H"
@@ -422,8 +502,10 @@ func CmdWhois(s Server, u *User, msg *irc.Message) error {
 			Command:  irc.RPL_WHOISCHANNELS,
 			Trailing: chlist,
 		})
-
-		status := u.mc.GetStatus(other.User)
+		var status string
+		if u.sc == nil {
+			status = u.mc.GetStatus(other.User)
+		}
 		/*
 			if status != "" {
 				idle := (model.GetMillis() - lastActivityAt/1000)
@@ -453,45 +535,4 @@ func CmdWhois(s Server, u *User, msg *irc.Message) error {
 		return u.Encode(r...)
 	}
 	return s.EncodeMessage(u, irc.ERR_NOSUCHNICK, msg.Params, "No such nick/channel")
-}
-
-func CmdInvite(s Server, u *User, msg *irc.Message) error {
-	who := msg.Params[0]
-	channel := msg.Params[1]
-	other, ok := s.HasUser(who)
-	if !ok {
-		return nil
-	}
-
-	channelName := strings.Replace(channel, "#", "", 1)
-	id := u.mc.GetChannelId(channelName, "")
-	if id == "" {
-		return nil
-	}
-	_, err := u.mc.Client.AddChannelMember(id, other.User)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func CmdKick(s Server, u *User, msg *irc.Message) error {
-	channel := msg.Params[0]
-	who := msg.Params[1]
-
-	other, ok := s.HasUser(who)
-	if !ok {
-		return nil
-	}
-	channelName := strings.Replace(channel, "#", "", 1)
-	id := u.mc.GetChannelId(channelName, "")
-	if id == "" {
-		return nil
-	}
-	_, err := u.mc.Client.RemoveChannelMember(id, other.User)
-	if err != nil {
-		return err
-	}
-	return nil
 }

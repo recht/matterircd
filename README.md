@@ -1,7 +1,7 @@
 # matterircd
 [![Join the IRC chat at https://webchat.freenode.net/?channels=matterircd](https://img.shields.io/badge/IRC-matterircd-green.svg)](https://webchat.freenode.net/?channels=matterircd)
 
-Minimal IRC server which integrates with [mattermost](https://www.mattermost.org)  
+Minimal IRC server which integrates with [mattermost](https://www.mattermost.org) and [slack](https://www.slack.com)
 Tested on Windows / Linux
 
 Most of the work happens in [mm-go-irckit](https://github.com/42wim/mm-go-irckit) (based on github.com/shazow/go-irckit)
@@ -16,15 +16,15 @@ docker run -p 6667:6667 42wim/matterircd:latest -bind 0.0.0.0:6667
 Now you can connect with your IRC client to port 6667 on your docker host.
 
 # Compatibility
-* Matterircd v0.11.6 works with mattermost 3.5.x - 3.10.0 [3.10.0 release](https://github.com/mattermost/platform/releases/tag/v3.10.0)
-* Matterircd v0.10.2 works with mattermost 3.3.0 - 3.4.0 [3.4.0 release](https://github.com/mattermost/platform/releases/tag/v3.4.0)
+* Matterircd v0.13.0 works with mattermost 3.5.x - 3.10.0, 4.0.x [4.0.0 release](https://github.com/mattermost/platform/releases/tag/v4.0.0)
+* Matterircd v0.14.0-dev also supports slack
 
 Master branch of matterircd should always work against latest STABLE mattermost release.  
 If you want to run matterircd with mattermost DEV builds, use the develop branch of matterircd.
 
 # Features
 
-* support direct messages / private channels
+* support direct messages / private channels / edited messages
 * auto-join/leave to same channels as on mattermost
 * reconnects with backoff on mattermost restarts
 * support multiple users
@@ -33,7 +33,7 @@ If you want to run matterircd with mattermost DEV builds, use the develop branch
 * scrollback support (/msg mattermost scrollback #channel limit)
 * restrict to specified mattermost instances
 * set default team/server
-* WHOIS, WHO, JOIN, LEAVE, NICK, LIST, ISON, PRIVMSG, MODE, TOPIC, LUSERS, AWAY support
+* WHOIS, WHO, JOIN, LEAVE, NICK, LIST, ISON, PRIVMSG, MODE, TOPIC, LUSERS, AWAY, KICK, INVITE support
 * support TLS (ssl)
 * support LDAP logins (mattermost enterprise) (use your ldap account/pass to login)
 * &users channel that contains members of all teams (if mattermost is so configured) for easy messaging
@@ -43,8 +43,7 @@ If you want to run matterircd with mattermost DEV builds, use the develop branch
 # Binaries
 
 You can find the binaries [here](https://github.com/42wim/matterircd/releases/)
-* For use with mattermost 3.5.0 and higher [v0.11.6](https://github.com/42wim/matterircd/releases/tag/v0.11.6)
-* For use with mattermost 3.3.0-3.4.0 [v0.10.2](https://github.com/42wim/matterircd/releases/tag/v0.10.2)
+* For use with mattermost 3.5.0 and higher [v0.13.0](https://github.com/42wim/matterircd/releases/tag/v0.13.0)
 
 # Building
 
@@ -120,6 +119,14 @@ Scrollback
 ```
 /msg mattermost scrollback <channel> <limit>
 e.g. /msg mattermost scrollback #bugs 100 shows the last 100 messages of #bugs
+```
+## Slack user commands
+Get a slack token on https://api.slack.com/custom-integrations/legacy-tokens
+
+Login
+
+```
+/msg slack login <token>
 ```
 
 ## Docker

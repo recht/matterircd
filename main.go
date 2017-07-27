@@ -18,7 +18,7 @@ import (
 var (
 	flagRestrict, flagDefaultTeam, flagDefaultServer, flagTLSBind, flagTLSDir *string
 	flagInsecure                                                              *bool
-	version                                                                   = "0.11.6"
+	version                                                                   = "0.14.0-dev"
 	githash                                                                   string
 	logger                                                                    *logrus.Entry
 )
@@ -50,9 +50,17 @@ func main() {
 		fmt.Printf("version: %s %s\n", version, githash)
 		return
 	}
+
 	irckit.SetLogger(logger)
+
+	logger.Infof("Running version %s %s", version, githash)
+	if strings.Contains(version, "-dev") {
+		logger.Infof("WARNING: THIS IS A DEVELOPMENT VERSION. Things may break.")
+	}
+
 	if *flagTLSBind != "" {
 		go func() {
+			logger.Infof("Listening on %s (TLS)", *flagTLSBind)
 			socket := tlsbind()
 			defer socket.Close()
 			start(socket)
@@ -62,21 +70,20 @@ func main() {
 	if *flagBind == "127.0.0.1:6667" && *flagBindInterface != "" && *flagBindPort != 0 {
 		*flagBind = fmt.Sprintf("%s:%d", *flagBindInterface, *flagBindPort)
 	}
-	socket, err := net.Listen("tcp", *flagBind)
-	if err != nil {
-		logger.Errorf("Can not listen on %s: %v", *flagBind, err)
+	if *flagBind != "" {
+		go func() {
+			socket, err := net.Listen("tcp", *flagBind)
+			if err != nil {
+				logger.Errorf("Can not listen on %s: %v", *flagBind, err)
+			}
+			logger.Infof("Listening on %s", *flagBind)
+			defer socket.Close()
+			go func() {
+				log.Println(http.ListenAndServe("localhost:6060", nil))
+			}()
+			start(socket)
+		}()
 	}
-	logger.Infof("Running version %s %s", version, githash)
-	if strings.Contains(version, "-dev") {
-		logger.Infof("WARNING: THIS IS A DEVELOPMENT VERSION. Things may break.")
-	}
-	logger.Infof("Listening on %s", *flagBind)
-	defer socket.Close()
-
-	go func() {
-		log.Println(http.ListenAndServe("localhost:6060", nil))
-	}()
-	start(socket)
 }
 
 func tlsbind() net.Listener {

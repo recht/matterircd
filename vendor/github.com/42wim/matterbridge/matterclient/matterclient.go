@@ -1,6 +1,7 @@
 package matterclient
 
 import (
+	"crypto/md5"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -16,6 +17,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 
 	"github.com/gorilla/websocket"
+	"github.com/hashicorp/golang-lru"
 	"github.com/jpillora/backoff"
 	"github.com/mattermost/platform/model"
 )
@@ -37,6 +39,7 @@ type Message struct {
 	Username string
 	Text     string
 	Type     string
+	UserID   string
 }
 
 type Team struct {
@@ -64,6 +67,8 @@ type MMClient struct {
 	WsSequence    int64
 	WsPingChan    chan *model.WebSocketResponse
 	ServerVersion string
+	OnWsConnect   func()
+	lruCache      *lru.Cache
 }
 
 func New(login, pass, team, server string) *MMClient {
@@ -71,6 +76,7 @@ func New(login, pass, team, server string) *MMClient {
 	mmclient := &MMClient{Credentials: cred, MessageChan: make(chan *Message, 100), Users: make(map[string]*model.User)}
 	mmclient.log = log.WithFields(log.Fields{"module": "matterclient"})
 	log.SetFormatter(&log.TextFormatter{FullTimestamp: true})
+	mmclient.lruCache, _ = lru.New(500)
 	return mmclient
 }
 
@@ -86,7 +92,7 @@ func (m *MMClient) SetLogLevel(level string) {
 func (m *MMClient) Login() error {
 	// check if this is a first connect or a reconnection
 	firstConnection := true
-	if m.WsConnected == true {
+	if m.WsConnected {
 		firstConnection = false
 	}
 	m.WsConnected = false
@@ -110,7 +116,10 @@ func (m *MMClient) Login() error {
 	for {
 		d := b.Duration()
 		// bogus call to get the serverversion
-		m.Client.GetClientProperties()
+		_, err := m.Client.GetClientProperties()
+		if err != nil {
+			return fmt.Errorf("%#v", err.Error())
+		}
 		if firstConnection && !supportedVersion(m.Client.ServerVersion) {
 			return fmt.Errorf("unsupported mattermost version: %s", m.Client.ServerVersion)
 		}
@@ -147,7 +156,7 @@ func (m *MMClient) Login() error {
 				return errors.New("invalid " + model.SESSION_COOKIE_TOKEN)
 			}
 		} else {
-			myinfo, appErr = m.Client.Login(m.Credentials.Login, m.Credentials.Pass)
+			_, appErr = m.Client.Login(m.Credentials.Login, m.Credentials.Pass)
 		}
 		if appErr != nil {
 			d := b.Duration()
@@ -265,7 +274,10 @@ func (m *MMClient) WsReceiver() {
 			m.log.Debugf("WsReceiver event: %#v", event)
 			msg := &Message{Raw: &event, Team: m.Credentials.Team}
 			m.parseMessage(msg)
-			m.MessageChan <- msg
+			// check if we didn't empty the message
+			if msg.Text != "" {
+				m.MessageChan <- msg
+			}
 			continue
 		}
 
@@ -301,6 +313,13 @@ func (m *MMClient) parseResponse(rmsg model.WebSocketResponse) {
 }
 
 func (m *MMClient) parseActionPost(rmsg *Message) {
+	// add post to cache, if it already exists don't relay this again.
+	// this should fix reposts
+	if ok, _ := m.lruCache.ContainsOrAdd(digestString(rmsg.Raw.Data["post"].(string)), true); ok {
+		m.log.Debugf("message %#v in cache, not processing again", rmsg.Raw.Data["post"].(string))
+		rmsg.Text = ""
+		return
+	}
 	data := model.PostFromJson(strings.NewReader(rmsg.Raw.Data["post"].(string)))
 	// we don't have the user, refresh the userlist
 	if m.GetUser(data.UserId) == nil {
@@ -309,6 +328,7 @@ func (m *MMClient) parseActionPost(rmsg *Message) {
 	}
 	rmsg.Username = m.GetUserName(data.UserId)
 	rmsg.Channel = m.GetChannelName(data.ChannelId)
+	rmsg.UserID = data.UserId
 	rmsg.Type = data.Type
 	teamid, _ := rmsg.Raw.Data["team_id"].(string)
 	// edit messsages have no team_id for some reason
@@ -326,7 +346,6 @@ func (m *MMClient) parseActionPost(rmsg *Message) {
 	}
 	rmsg.Text = data.Message
 	rmsg.Post = data
-	return
 }
 
 func (m *MMClient) UpdateUsers() error {
@@ -497,6 +516,25 @@ func (m *MMClient) GetPublicLinks(filenames []string) []string {
 	return output
 }
 
+func (m *MMClient) GetFileLinks(filenames []string) []string {
+	uriScheme := "https://"
+	if m.NoTLS {
+		uriScheme = "http://"
+	}
+
+	var output []string
+	for _, f := range filenames {
+		res, err := m.Client.GetPublicLink(f)
+		if err != nil {
+			// public links is probably disabled, create the link ourselves
+			output = append(output, uriScheme+m.Credentials.Server+model.API_URL_SUFFIX_V3+"/files/"+f+"/get")
+			continue
+		}
+		output = append(output, res)
+	}
+	return output
+}
+
 func (m *MMClient) UpdateChannelHeader(channelId string, header string) {
 	data := make(map[string]string)
 	data["channel_id"] = channelId
@@ -513,7 +551,7 @@ func (m *MMClient) UpdateLastViewed(channelId string) {
 	if m.mmVersion() >= 3.08 {
 		view := model.ChannelView{ChannelId: channelId}
 		res, _ := m.Client.ViewChannel(view)
-		if res == false {
+		if !res {
 			m.log.Errorf("ChannelView update for %s failed", channelId)
 		}
 		return
@@ -661,13 +699,13 @@ func (m *MMClient) GetUsers() map[string]*model.User {
 func (m *MMClient) GetUser(userId string) *model.User {
 	m.Lock()
 	defer m.Unlock()
-	u, ok := m.Users[userId]
+	_, ok := m.Users[userId]
 	if !ok {
 		res, err := m.Client.GetProfilesByIds([]string{userId})
 		if err != nil {
 			return nil
 		}
-		u = res.Data.(map[string]*model.User)[userId]
+		u := res.Data.(map[string]*model.User)[userId]
 		m.Users[userId] = u
 	}
 	return m.Users[userId]
@@ -721,10 +759,13 @@ func (m *MMClient) GetTeamId() string {
 	return m.Team.Id
 }
 
-func (m *MMClient) StatusLoop(onConnect func()) {
+func (m *MMClient) StatusLoop() {
 	retries := 0
 	backoff := time.Second * 60
-	onConnect()
+	if m.OnWsConnect != nil {
+		m.OnWsConnect()
+	}
+	m.log.Debug("StatusLoop:", m.OnWsConnect)
 	for {
 		if m.WsQuit {
 			return
@@ -741,7 +782,9 @@ func (m *MMClient) StatusLoop(onConnect func()) {
 					m.Logout()
 					m.WsQuit = false
 					m.Login()
-					onConnect()
+					if m.OnWsConnect != nil {
+						m.OnWsConnect()
+					}
 					go m.WsReceiver()
 				} else {
 					retries++
@@ -825,8 +868,13 @@ func supportedVersion(version string) bool {
 		strings.HasPrefix(version, "3.7.0") ||
 		strings.HasPrefix(version, "3.8.0") ||
 		strings.HasPrefix(version, "3.9.0") ||
-		strings.HasPrefix(version, "3.10.0") {
+		strings.HasPrefix(version, "3.10.0") ||
+		strings.HasPrefix(version, "4.0") {
 		return true
 	}
 	return false
+}
+
+func digestString(s string) string {
+	return fmt.Sprintf("%x", md5.Sum([]byte(s)))
 }
